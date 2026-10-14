@@ -69,6 +69,7 @@ ipcMain.handle('glass',(e,id)=>{
   const n=find(id);n.glass=n.glass?undefined:true;
   save();apply(win(e),n,false);return !!n.glass;
 });
+ipcMain.on('cols',(e,id,v)=>{const n=find(id);if(n){n.cols=v||undefined;save()}}); // máx. de columnas (0 = sin columnas)
 ipcMain.on('new',add);
 ipcMain.on('close',e=>win(e).close());
 ipcMain.on('del',(e,id)=>{

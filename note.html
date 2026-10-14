@@ -15,6 +15,9 @@ button.on{opacity:1;background:#0003}
 #ed h3{font-size:19px;margin:0}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
+#ed.cols{overflow:hidden;overflow-x:auto;column-fill:auto;column-gap:18px;column-rule:1px solid #0002}
+#ed.cols div,#ed.cols li{break-inside:avoid}
+#cb{position:relative}#cn{position:absolute;right:4px;bottom:1px;font-size:10px;font-weight:700}
 .back{font-size:12px;opacity:.7;margin-left:6px;user-select:none}
 #tb{flex:none;display:flex;flex-wrap:wrap;align-items:center;background:#0001;padding:0 2px}
 #tb s{width:1px;height:16px;background:#0003;margin:0 3px}
@@ -26,6 +29,7 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-plus viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id=i-z0 viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
 <symbol id=i-glass viewBox="0 0 24 24"><circle cx=9 cy=9 r=7 /><circle cx=15 cy=15 r=7 /></symbol>
+<symbol id=i-cols viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=3 rx=2 /><path d="M9 3v18M15 3v18"/></symbol>
 <symbol id=i-ztop viewBox="0 0 24 24"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></symbol>
 <symbol id=i-zbottom viewBox="0 0 24 24"><path d="m7 6 5 5 5-5M7 13l5 5 5-5"/></symbol>
 <symbol id=i-color viewBox="0 0 24 24"><path d="M12 2.7l5.7 5.6a8 8 0 1 1-11.4 0z"/></symbol>
@@ -48,6 +52,7 @@ button.on{opacity:1;background:#0003}
 
 <div id=bar>
   <button onclick="api.add()" title="Nueva nota (Ctrl+N)"><svg><use href="#i-plus"/></svg></button><i></i>
+  <button id=cb><svg><use href="#i-cols"/></svg><span id=cn></span></button>
   <button id=gl><svg><use href="#i-glass"/></svg></button>
   <button id=zb><svg><use href="#i-z0"/></svg></button>
   <button id=col title="Cambiar color (Ctrl+Shift+C)"><svg><use href="#i-color"/></svg></button>
@@ -84,6 +89,7 @@ button.on{opacity:1;background:#0003}
   <div><b>Alt+↑ / Alt+↓</b> mover línea</div>
   <div><b>Ctrl+N / Ctrl+W</b> nueva / cerrar nota</div>
   <div><b>Ctrl+Shift+C</b> cambiar color</div>
+  <div><b>Ctrl+Shift+K</b> columnas: 2 / 3 / 4 / 5 / quitar</div>
   <div><b>Ctrl+Shift+G</b> translucida / opaca</div>
   <div><b>Ctrl+Shift+P</b> posici&oacute;n: normal / encima / debajo</div>
   <div style="margin-top:8px;opacity:.8">Repetir una tarea: añade <b style="min-width:0">@diario @semanal @mensual @lunes…@domingo @cada3d</b> en su línea.</div>
@@ -123,7 +129,7 @@ function resets(){
   if(ch)sv();
 }
 function load(n){
-  document.body.style.background=n.color;setZ(n.z);setGlass(n.glass);
+  document.body.style.background=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
   ed.innerHTML=n.html||'<div><br></div>';
   resets();
 }
@@ -176,7 +182,7 @@ const A={
 const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
   'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
-const G={'c:KeyN':()=>api.add(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),
+const G={'c:KeyN':()=>api.add(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
   'F1':toggleHelp,'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
@@ -214,6 +220,14 @@ function setZ(z){zb.querySelector('use').setAttribute('href','#i-z'+(z||'0'));zb
 zb.onclick=async()=>setZ(await api.z(id));
 function setGlass(g){gl.classList.toggle('on',!!g);gl.title=(g?'Translucida (clic: opaca)':'Opaca (clic: translucida)')+' - Ctrl+Shift+G'}
 gl.onclick=async()=>setGlass(await api.glass(id));
+// modo columnas: el texto que no cabe abajo pasa a la columna de la derecha (máx. v columnas según el ancho)
+let cols=0;
+function setCols(v){
+  cols=v||0;ed.classList.toggle('cols',!!cols);ed.style.columns=cols?'130px '+cols:'';
+  cn.textContent=cols||'';cb.classList.toggle('on',!!cols);
+  cb.title=(cols?'Columnas: hasta '+cols+' (clic: '+(cols<5?cols+1:'quitar')+')':'Sin columnas (clic: 2)')+' - Ctrl+Shift+K';
+}
+cb.onclick=()=>{const v=!cols?2:cols<5?cols+1:0;setCols(v);api.cols(id,v)};
 hbtn.onclick=toggleHelp;
 del.onclick=()=>api.del(id);
 
