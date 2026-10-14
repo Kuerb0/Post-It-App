@@ -1,0 +1,12 @@
+const {contextBridge,ipcRenderer:r}=require('electron');
+contextBridge.exposeInMainWorld('api',{
+  get:id=>r.invoke('get',id),
+  save:(id,html)=>r.send('save',id,html),
+  color:id=>r.invoke('color',id),
+  z:id=>r.invoke('z',id),
+  glass:id=>r.invoke('glass',id),
+  add:()=>r.send('new'),
+  del:id=>r.send('del',id),
+  close:()=>r.send('close'),
+  onSet:f=>r.on('set',(_,n)=>f(n)),
+});
