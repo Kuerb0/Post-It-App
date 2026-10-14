@@ -18,6 +18,9 @@ button.on{opacity:1;background:#0003}
 #ed.cols{overflow:hidden;overflow-x:auto;column-fill:auto;column-gap:18px;column-rule:1px solid #0002}
 #ed.cols div,#ed.cols li{break-inside:avoid}
 #cb{position:relative}#cn{position:absolute;right:4px;bottom:1px;font-size:10px;font-weight:700}
+#ed .rep{margin:0 4px 0 0;user-select:none;cursor:pointer}#ed .rep svg{width:13px;height:13px;vertical-align:-2px;opacity:.65}
+#dts{display:none;flex:none;align-items:center;gap:2px;padding:2px 6px;background:#0002;font-size:13px}
+#dts button{width:auto;padding:0 8px;font-size:13px;opacity:.85}
 .back{font-size:12px;opacity:.7;margin-left:6px;user-select:none}
 #tb{flex:none;display:flex;flex-wrap:wrap;align-items:center;background:#0001;padding:0 2px}
 #tb s{width:1px;height:16px;background:#0003;margin:0 3px}
@@ -30,6 +33,8 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-z0 viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
 <symbol id=i-glass viewBox="0 0 24 24"><circle cx=9 cy=9 r=7 /><circle cx=15 cy=15 r=7 /></symbol>
 <symbol id=i-cols viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=3 rx=2 /><path d="M9 3v18M15 3v18"/></symbol>
+<symbol id=i-repeat viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id=i-cal viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=4 rx=2 /><path d="M8 2v4M16 2v4M3 10h18M12 14v4M10 16h4"/></symbol>
 <symbol id=i-ztop viewBox="0 0 24 24"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></symbol>
 <symbol id=i-zbottom viewBox="0 0 24 24"><path d="m7 6 5 5 5-5M7 13l5 5 5-5"/></symbol>
 <symbol id=i-color viewBox="0 0 24 24"><path d="M12 2.7l5.7 5.6a8 8 0 1 1-11.4 0z"/></symbol>
@@ -61,6 +66,7 @@ button.on{opacity:1;background:#0003}
   <button onclick="api.close()" title="Cerrar (Ctrl+W)"><svg><use href="#i-x"/></svg></button>
 </div>
 <div id=ed contenteditable spellcheck=false></div>
+<div id=dts>Anadir fechas: <button data-n=2>+2</button><button data-n=3>+3</button><button data-n=5>+5</button><button data-n=7>+7</button><button data-n=14>+14</button><button data-n=30>+30</button> dias</div>
 <div id=tb>
   <button data-c=bold title="Negrita (Ctrl+B)"><svg><use href="#i-bold"/></svg></button>
   <button data-c=italic title="Cursiva (Ctrl+I)"><svg><use href="#i-italic"/></svg></button>
@@ -69,6 +75,8 @@ button.on{opacity:1;background:#0003}
   <button data-c=hl title="Resaltar (Ctrl+Shift+H)"><svg><use href="#i-hl"/></svg></button>
   <button data-c=head title="Título (Ctrl+Shift+1)"><svg><use href="#i-head"/></svg></button><s></s>
   <button data-c=task title="Tarea ☐ (Ctrl+Enter, o escribe '- ' / '[] ')"><svg><use href="#i-task"/></svg></button>
+  <button data-c=repeat title="Periodica: copia la linea como tarea bajo las fechas siguientes (14/10, 15/10...). Escribe en la linea 'cada 2 lunes', 'cada 3 dias'... para elegir cuando (Ctrl+Shift+R)"><svg><use href="#i-repeat"/></svg></button>
+  <button data-c=dates title="Anadir varias fechas (Ctrl+Shift+D)"><svg><use href="#i-cal"/></svg></button>
   <button data-c=ul title="Viñetas (Ctrl+Shift+8)"><svg><use href="#i-ul"/></svg></button>
   <button data-c=ol title="Numerada (Ctrl+Shift+7)"><svg><use href="#i-ol"/></svg></button><s></s>
   <button data-c=outdent title="Quitar sangría (Shift+Tab)"><svg><use href="#i-outdent"/></svg></button>
@@ -89,6 +97,8 @@ button.on{opacity:1;background:#0003}
   <div><b>Alt+↑ / Alt+↓</b> mover línea</div>
   <div><b>Ctrl+N / Ctrl+W</b> nueva / cerrar nota</div>
   <div><b>Ctrl+Shift+C</b> cambiar color</div>
+  <div><b>Ctrl+Shift+R</b> linea periodica: se copia como tarea bajo las fechas (14/10, 15/10...) que haya mas abajo. Reglas: escribe en la linea <i>cada 2 lunes</i>, <i>cada 3 dias</i>, <i>cada semana</i>, <i>cada 2 semanas</i>, <i>cada mes</i></div>
+  <div><b>Ctrl+Shift+D</b> anadir varias fechas de golpe</div>
   <div><b>Ctrl+Shift+K</b> columnas: 2 / 3 / 4 / 5 / quitar</div>
   <div><b>Ctrl+Shift+G</b> translucida / opaca</div>
   <div><b>Ctrl+Shift+P</b> posici&oacute;n: normal / encima / debajo</div>
@@ -119,7 +129,7 @@ console.assert(next('diario',t0)=='2026-10-15'&&next('Miércoles',t0)=='2026-10-
 
 let timer;const sv=()=>api.save(id,ed.innerHTML);
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
-const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');const s=c.nextElementSibling;if(s?.classList.contains('back'))s.remove()};
+const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
 // tareas hechas cuyo "vuelve" ya llegó → se desmarcan
 function resets(){
@@ -152,19 +162,141 @@ function line(){
     return n==ed?null:n};
   return find()||(document.execCommand('formatBlock',false,'div'),find());
 }
+const addBox=L=>{const b=document.createElement('input');b.type='checkbox';L.prepend(b);return b};
+// todas las líneas tocadas por la selección (o la del cursor si no hay selección)
+function lines(){
+  const s=getSelection();
+  if(!s.rangeCount||s.isCollapsed)return [line()];
+  const r=s.getRangeAt(0),at0=b=>{const p=document.createRange();p.selectNodeContents(b);p.collapse(true);return r.compareBoundaryPoints(Range.END_TO_END,p)==0};
+  const L=[...ed.querySelectorAll('div,li,h3,p')].filter(b=>!b.querySelector('div,li,h3,p')&&s.containsNode(b,true));
+  const real=L.filter(b=>!at0(b)); // el triple clic deja el final al inicio de la línea siguiente: no cuenta
+  return real.length?real:L.length?L:[line()];
+}
+// sin casillas → se las pone a las líneas que no la tienen · todas con casilla → marca las pendientes (o desmarca si todas están hechas)
 function task(){
-  const L=line(),c=L.firstElementChild;
-  if(c?.type=='checkbox')return c.click();
-  const b=document.createElement('input');b.type='checkbox';L.prepend(b);
-  if(!L.textContent.trim()){const r=document.createRange();r.setStartAfter(b);getSelection().removeAllRanges();getSelection().addRange(r)}
+  let L=lines();const multi=L.length>1;
+  if(multi)L=L.filter(l=>!blank(l)&&!isHead(l));
+  const boxes=L.map(l=>l.firstElementChild?.type=='checkbox'?l.firstElementChild:null);
+  if(boxes.some(b=>!b)){
+    L.forEach((l,i)=>{
+      if(boxes[i])return;
+      const b=addBox(l);
+      if(!multi&&!l.textContent.trim()){const r=document.createRange();r.setStartAfter(b);getSelection().removeAllRanges();getSelection().addRange(r)}
+    });
+  }else{const all=boxes.every(b=>b.checked);boxes.forEach(b=>{if(b.checked==all)b.click()})}
   later();
 }
+// mueve el bloque de líneas seleccionado (deben ser hermanas)
 function move(d){
-  const L=line(),s=getSelection(),n=s.anchorNode,o=s.anchorOffset,t=d<0?L.previousElementSibling:L.nextElementSibling;
-  if(!t)return;d<0?t.before(L):t.after(L);s.collapse(n,o);later();
+  const L=lines(),a=L[0],z=L.at(-1),s=getSelection(),[an,ao,fn,fo]=[s.anchorNode,s.anchorOffset,s.focusNode,s.focusOffset];
+  if(!L.every(l=>l.parentNode==a.parentNode))return;
+  const t=d<0?a.previousElementSibling:z.nextElementSibling;
+  if(!t)return;d<0?z.after(t):a.before(t);
+  s.setBaseAndExtent(an,ao,fn,fo);later();
 }
 
-const ex=(c,v)=>{document.execCommand(c,false,v);later()};
+// ── Periodicas: una linea marcada con el icono se copia como tarea sin marcar bajo las
+// cabeceras de fecha (linea que es solo una fecha: 14/10, 15-10, Lunes 16/10) que aparezcan MAS ABAJO.
+// Sin regla = todas las fechas. Regla escrita en la propia linea: "cada 2 lunes", "cada 3 dias",
+// "cada semana", "cada 2 semanas", "cada mes", "cada otro viernes".
+// Sin estado: se compara por texto, asi que es idempotente (si ya esta en esa fecha, no se duplica).
+const WDN=['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
+const DATE=/^(?:(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\s+)?(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?:?$/;
+const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+const text=L=>{const k=L.cloneNode(true);k.querySelectorAll('.back,.rep').forEach(x=>x.remove());return norm(k.textContent)};
+const isHead=L=>L.tagName=='DIV'&&DATE.test(text(L));
+const blank=L=>!L.textContent.trim()&&!L.querySelector('input');
+const REP='<span class=rep contenteditable=false title="Periodica: se copia bajo las fechas siguientes (clic para quitar)"><svg><use href="#i-repeat"/></svg></span>';
+
+// cabecera → Date (a mediodia). Sin ano escrito: el del texto en orden cronologico (si retrocede, ano siguiente)
+function headDates(){
+  const out=new Map();let y=new Date().getFullYear(),prev=null;
+  for(const h of [...ed.children].filter(isHead)){
+    const m=DATE.exec(text(h));
+    if(m[3])y=+m[3]<100?2000+ +m[3]:+m[3];
+    let d=new Date(y,m[2]-1,+m[1],12);
+    if(!m[3]&&(prev?d<prev:Date.now()-d>183*864e5))d=new Date(++y,m[2]-1,+m[1],12);
+    out.set(h,prev=d);
+  }
+  return out;
+}
+const NUM={un:1,una:1,otro:2,otra:2,dos:2,tres:3,cuatro:4,cinco:5};
+function rule(t){
+  const m=/\bcada\s+(?:(\d+|[a-z]+)\s+)?(lunes|martes|miercoles|jueves|viernes|sabado|domingo|dias?|semanas?|mes(?:es)?)\b/.exec(t);
+  const n=m&&(m[1]?+m[1]||NUM[m[1]]:1);
+  return n?{n,u:m[2].startsWith('dia')?'d':m[2].startsWith('sem')?'w':m[2].startsWith('mes')?'m':WDN.indexOf(m[2])}:null;
+}
+// d0 = fecha del origen · a = primera fecha con ese dia de la semana (ancla de "cada N lunes")
+function due(r,d,d0,a){
+  const days=Math.round((d-d0)/864e5);
+  if(r.u=='d')return days>=0&&days%r.n==0;
+  if(r.u=='w')return days>=0&&days%(7*r.n)==0;
+  if(r.u=='m'){const m=(d.getFullYear()-d0.getFullYear())*12+d.getMonth()-d0.getMonth();return d.getDate()==d0.getDate()&&m>=0&&m%r.n==0}
+  if(d.getDay()!=r.u||!a)return false;
+  const w=Math.round((d-a)/(7*864e5));return w>=0&&w%r.n==0;
+}
+function copies(){
+  let added=0;const dates=headDates(),heads=[...dates.keys()];
+  for(const r of [...ed.children].filter(r=>r.tagName=='DIV'&&r.querySelector('.rep'))){
+    const me=text(r),ru=rule(me);
+    const after=heads.filter(h=>r.compareDocumentPosition(h)&Node.DOCUMENT_POSITION_FOLLOWING);
+    const above=heads.filter(h=>!after.includes(h)).at(-1);
+    const d0=dates.get(above)||dates.get(after[0]);
+    const anchor=ru&&ru.u>=0?[above,...after].filter(Boolean).map(h=>dates.get(h)).find(d=>d.getDay()==ru.u):null;
+    for(const h of after){
+      if(ru&&!due(ru,dates.get(h),d0,anchor))continue;
+      const rows=[...ed.children],j=rows.indexOf(h)+1;let k=j;
+      while(k<rows.length&&!isHead(rows[k]))k++;
+      const sec=rows.slice(j,k);
+      if(sec.some(s=>s.tagName=='DIV'&&text(s)==me))continue;
+      const d=r.cloneNode(true);
+      d.querySelectorAll('.rep,.back').forEach(x=>x.remove());
+      const b=d.querySelector('input');b.checked=false;b.removeAttribute('checked');b.removeAttribute('data-back');
+      (sec.filter(s=>!blank(s)).at(-1)||h).after(d);added++;
+    }
+  }
+  return added;
+}
+function repeat(){
+  let L=lines().filter(l=>!isHead(l));
+  if(L.length>1)L=L.filter(l=>!blank(l));
+  if(!L.length)return;
+  const has=L.map(l=>l.querySelector('.rep')),all=has.every(Boolean); // todas ya periódicas → se quitan
+  L.forEach((l,i)=>{
+    if(all)return has[i].remove();
+    if(has[i])return;
+    (l.firstElementChild?.type=='checkbox'?l.firstElementChild:addBox(l)).insertAdjacentHTML('afterend',REP);
+  });
+  copies();later();
+}
+// varias fechas de golpe: continua desde la ultima cabecera del texto (o desde hoy) con un dia por cabecera
+const toggleDates=()=>dts.style.display=dts.style.display=='flex'?'none':'flex';
+dts.onclick=e=>{const n=+e.target.dataset.n;if(n){addDays(n);dts.style.display='none'}};
+function addDays(n){
+  const hd=[...headDates().values()],pad=v=>String(v).padStart(2,'0');
+  let d=new Date();d.setHours(12,0,0,0);
+  if(hd.length){d=new Date(hd.at(-1));d.setDate(d.getDate()+1)}
+  let first;
+  for(let i=0;i<n;i++,d.setDate(d.getDate()+1)){
+    const h=document.createElement('div'),b=document.createElement('div');
+    h.innerHTML='<b>'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</b>';b.innerHTML='<br>';
+    ed.append(h,b);first??=b;
+  }
+  copies();
+  const r=document.createRange();r.setStart(first,0);getSelection().removeAllRanges();getSelection().addRange(r);
+  first.scrollIntoView({block:'nearest'});ed.focus();later();
+}
+
+// una selección que empieza/acaba DENTRO de "↻ vuelve…" o del icono ⟳ (no editables) hace que execCommand no haga nada:
+// se saca el borde fuera de esos elementos, dejándolos dentro de la selección
+function fixSel(){
+  const s=getSelection();if(!s.rangeCount)return;
+  const r=s.getRangeAt(0),ne=n=>(n.nodeType==1?n:n.parentElement)?.closest('.back,.rep'),a=ne(r.startContainer),b=ne(r.endContainer);
+  if(a)r.setStartBefore(a);
+  if(b)r.setEndAfter(b);
+  if(a||b){s.removeAllRanges();s.addRange(r)}
+}
+const ex=(c,v)=>{fixSel();document.execCommand(c,false,v);later()};
 // ¿el cursor está sobre texto resaltado? (queryCommandValue('hiliteColor') no sirve en Chrome)
 function hlOn(){
   let n=getSelection().getRangeAt(0).startContainer;n=n.nodeType==3?n.parentElement:n;
@@ -175,20 +307,22 @@ const A={
   bold:()=>ex('bold'),italic:()=>ex('italic'),underline:()=>ex('underline'),strike:()=>ex('strikeThrough'),
   hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),
   head:()=>ex('formatBlock',document.queryCommandValue('formatBlock')=='h3'?'div':'h3'),
-  ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,
+  ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,dates:()=>toggleDates(),
   indent:()=>ex('indent'),outdent:()=>ex('outdent'),clear:()=>ex('removeFormat'),
 };
 // combo (c=Ctrl s=Shift a=Alt) : tecla física
 const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
-  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','Tab':'indent','s:Tab':'outdent'};
+  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
   'F1':toggleHelp,'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
   const m=(e.ctrlKey?'c':'')+(e.shiftKey?'s':'')+(e.altKey?'a':''),k=(m?m+':':'')+e.code;
+  if(e.ctrlKey&&/^Key[BIU]$/.test(e.code))fixSel(); // Ctrl+B/I/U los hace el navegador
   if(G[k]){e.preventDefault();return G[k]()}
   if(K[k]){e.preventDefault();return A[K[k]]()}
+  if(k=='Enter')setTimeout(()=>{if(copies())later()},0); // por si lo escrito es una cabecera de fecha nueva
   // Enter en una tarea: la siguiente línea también es tarea; en una tarea vacía, sale de la lista
   if(k=='Enter'){
     const L=line(),c=L?.firstElementChild;
@@ -210,7 +344,8 @@ ed.oninput=()=>{
   }
   later();
 };
-ed.onblur=sv;
+ed.onblur=()=>{copies();sv()};
+ed.onclick=e=>{const r=e.target.closest('.rep');if(r){r.remove();later()}};
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
 
 tb.onmousedown=e=>{e.preventDefault();const c=e.target.closest('button')?.dataset.c;if(c)A[c]()};
