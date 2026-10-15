@@ -60,7 +60,7 @@ button.on{opacity:1;background:#0003}
   <button id=cb><svg><use href="#i-cols"/></svg><span id=cn></span></button>
   <button id=gl><svg><use href="#i-glass"/></svg></button>
   <button id=zb><svg><use href="#i-z0"/></svg></button>
-  <button id=col title="Cambiar color (Ctrl+Shift+C)"><svg><use href="#i-color"/></svg></button>
+  <button id=col title="Elegir color (Ctrl+Shift+C)"><svg><use href="#i-color"/></svg></button><input type=color id=cp style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
   <button id=hbtn title="Atajos (F1)"><svg><use href="#i-help"/></svg></button>
   <button id=del title="Eliminar nota"><svg><use href="#i-trash"/></svg></button>
   <button onclick="api.close()" title="Cerrar (Ctrl+W)"><svg><use href="#i-x"/></svg></button>
@@ -139,7 +139,7 @@ function resets(){
   if(ch)sv();
 }
 function load(n){
-  document.body.style.background=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
+  document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
   ed.innerHTML=n.html||'<div><br></div>';
   resets();
 }
@@ -237,6 +237,8 @@ function due(r,d,d0,a){
 }
 function copies(){
   let added=0;const dates=headDates(),heads=[...dates.keys()];
+  for(const [h,d] of dates)if(!/^[a-z]/.test(text(h))){ // cabecera sin dia de la semana → se lo pone ("14/10" → "Miércoles 14/10")
+    h.prepend(d.toLocaleDateString('es',{weekday:'long'}).replace(/^./,c=>c.toUpperCase())+' ');added++}
   for(const r of [...ed.children].filter(r=>r.tagName=='DIV'&&r.querySelector('.rep'))){
     const me=text(r),ru=rule(me);
     const after=heads.filter(h=>r.compareDocumentPosition(h)&Node.DOCUMENT_POSITION_FOLLOWING);
@@ -349,7 +351,10 @@ ed.onclick=e=>{const r=e.target.closest('.rep');if(r){r.remove();later()}};
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
 
 tb.onmousedown=e=>{e.preventDefault();const c=e.target.closest('button')?.dataset.c;if(c)A[c]()};
-col.onclick=async()=>document.body.style.background=await api.color(id);
+// selector nativo (mapa de color + RGB): en vivo mientras arrastras, se guarda al cerrar
+col.onclick=()=>cp.showPicker();
+cp.oninput=()=>document.body.style.background=cp.value;
+cp.onchange=()=>api.color(id,cp.value);
 const ZT={undefined:'Posicion: normal (clic: encima)',top:'Posicion: encima de todo (clic: debajo)',bottom:'Posicion: debajo de las demas ventanas (clic: normal)'};
 function setZ(z){zb.querySelector('use').setAttribute('href','#i-z'+(z||'0'));zb.title=ZT[z]+' - Ctrl+Shift+P';zb.classList.toggle('on',!!z)}
 zb.onclick=async()=>setZ(await api.z(id));

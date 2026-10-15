@@ -57,9 +57,9 @@ function add(){
 
 ipcMain.handle('get',(e,id)=>find(id));
 ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n){n.html=html;save()}});
-ipcMain.handle('color',(e,id)=>{
-  const n=find(id);n.color=COLORS[(COLORS.indexOf(n.color)+1)%COLORS.length];
-  save();win(e).setBackgroundColor(n.color);return n.color;
+ipcMain.on('color',(e,id,c)=>{ // c = #rrggbb elegido en el selector
+  const n=find(id);if(!n||!/^#[0-9a-f]{6}$/i.test(c))return;
+  n.color=c;save();win(e).setBackgroundColor(c);
 });
 ipcMain.handle('z',(e,id)=>{ // normal → encima → debajo → normal
   const n=find(id);n.z={undefined:'top',top:'bottom',bottom:undefined}[n.z];
