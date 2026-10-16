@@ -1,0 +1,116 @@
+// Lanzador del instalador de @@NOMBRE@@ @@VERSION@@ (lo compila generar_instaladores.py con el csc.exe que ya trae Windows).
+// Lleva dentro el instalador .bat comprimido (recurso «paquete.gz»): lo saca a una carpeta temporal y abre el asistente de PowerShell sin ninguna consola.
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Drawing;
+using System.Windows.Forms;
+
+[assembly: AssemblyTitle("Instalador de @@NOMBRE@@")]
+[assembly: AssemblyProduct("@@NOMBRE@@")]
+[assembly: AssemblyCompany("Kuerb0")]
+[assembly: AssemblyDescription("Instalador de @@NOMBRE@@ @@VERSION@@")]
+[assembly: AssemblyVersion("@@VERSION_NUM@@")]
+[assembly: AssemblyFileVersion("@@VERSION_NUM@@")]
+
+static class Instalador
+{
+    // entrecomilla un argumento (y protege una barra final, que escaparia la comilla)
+    static string Q(string s)
+    {
+        if (s.Length > 0 && s.IndexOfAny(new[] { ' ', '\t', '"' }) < 0) return s;
+        s = s.Replace("\"", "\\\"");
+        if (s.EndsWith("\\")) s += "\\";
+        return "\"" + s + "\"";
+    }
+
+    // ventana de «Preparando...» mientras el asistente arranca (la primera vez puede tardar unos segundos por el antivirus)
+    static void Splash(string listo, Process p, string exe)
+    {
+        Form f = new Form();
+        f.FormBorderStyle = FormBorderStyle.None; f.StartPosition = FormStartPosition.CenterScreen; f.ClientSize = new Size(470, 120);
+        f.BackColor = Color.FromArgb(11, 15, 20); f.ShowInTaskbar = true; f.Text = "Instalador de @@NOMBRE@@";
+        try { f.Icon = Icon.ExtractAssociatedIcon(exe); } catch (Exception) { }
+        Color cian = Color.FromArgb(46, 196, 182);
+        int x = 0;
+        f.Paint += delegate(object o, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.DrawRectangle(new Pen(cian, 2), 1, 1, f.ClientSize.Width - 3, f.ClientSize.Height - 3);
+            using (Font t = new Font("Consolas", 13f, FontStyle.Bold))
+                g.DrawString("Preparando el instalador de @@NOMBRE@@...", t, new SolidBrush(cian), 24, 24);
+            using (Font t = new Font("Consolas", 9f))
+                g.DrawString("KUERB0  ·  la primera vez puede tardar unos segundos", t, new SolidBrush(Color.FromArgb(139, 152, 165)), 24, 52);
+            g.FillRectangle(new SolidBrush(Color.FromArgb(17, 23, 30)), 24, 86, 422, 10);
+            g.FillRectangle(new SolidBrush(cian), 24 + x, 86, 110, 10);
+        };
+        System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer();
+        tm.Interval = 40;
+        int pasos = 0;
+        tm.Tick += delegate
+        {
+            x = (x + 9) % (422 - 110 + 9);
+            f.Invalidate();
+            if (File.Exists(listo) || p.HasExited || ++pasos > 1500) f.Close();      // listo: la ventana del asistente ya esta abierta; tope: 60 s
+        };
+        tm.Start();
+        Application.Run(f);
+    }
+
+    [STAThread]
+    static int Main(string[] args)
+    {
+        bool nuevo;
+        Mutex unico = new Mutex(true, @"Local\kuerb0_@@PREFIJO@@_instalador", out nuevo);
+        if (!nuevo) return 0;      // ya hay un instalador abierto o arrancando: un segundo doble clic no abre otro
+        string exe = Assembly.GetExecutingAssembly().Location;
+        string dir = Path.GetDirectoryName(exe);
+        // igual que el .bat: dentro de instaladores\ de un repositorio, la carpeta del programa es la de arriba
+        string defecto = string.Equals(Path.GetFileName(dir), "instaladores", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(dir) : dir;
+
+        string tmp = Path.Combine(Path.GetTempPath(), "@@PREFIJO@@_instalador_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        Directory.CreateDirectory(tmp);
+        string bat = Path.Combine(tmp, "paquete.bat");
+        using (Stream rec = Assembly.GetExecutingAssembly().GetManifestResourceStream("paquete.gz"))
+        using (GZipStream gz = new GZipStream(rec, CompressionMode.Decompress))
+        using (FileStream f = File.Create(bat))
+            gz.CopyTo(f);
+
+        // el asistente es la parte del .bat entre :::PSSTART y :::PSEND
+        string[] lineas = File.ReadAllLines(bat, new UTF8Encoding(false));
+        int a = Array.IndexOf(lineas, ":::PSSTART"), b = Array.IndexOf(lineas, ":::PSEND");
+        if (a < 0 || b < a) return 2;
+        List<string> script = new List<string>();
+        for (int i = a + 1; i < b; i++) script.Add(lineas[i]);
+        string ps1 = Path.Combine(tmp, "instalador.ps1");
+        File.WriteAllLines(ps1, script.ToArray(), new UTF8Encoding(true));
+
+        bool silencioso = false;
+        StringBuilder extra = new StringBuilder();
+        foreach (string x in args)
+        {
+            if (string.Equals(x, "-Silencioso", StringComparison.OrdinalIgnoreCase)) silencioso = true;
+            extra.Append(' ').Append(Q(x));
+        }
+        string argumentos = "-NoProfile -ExecutionPolicy Bypass -STA -File " + Q(ps1) + " -Self " + Q(bat) + " -Origen " + Q(exe)
+                          + " -DirPorDefecto " + Q(defecto) + " -LimpiarTemp" + extra;
+
+        ProcessStartInfo psi = new ProcessStartInfo("powershell.exe", argumentos);
+        psi.UseShellExecute = false;
+        psi.CreateNoWindow = true;
+        Process p = Process.Start(psi);
+        if (!silencioso)
+        {
+            Application.EnableVisualStyles();
+            Splash(Path.Combine(tmp, "listo"), p, exe);      // con ventana: cuando el asistente se abre, este .exe se cierra y el asistente sigue solo
+            return 0;
+        }
+        p.WaitForExit();
+        return p.ExitCode;
+    }
+}

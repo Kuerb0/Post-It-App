@@ -1,0 +1,50 @@
+@echo off
+chcp 65001 >nul
+setlocal EnableExtensions
+title @@NOMBRE@@ @@VERSION@@ - Instalador
+color 0F
+
+set "SELF=%~f0"
+set "SELF_DIR=%~dp0"
+if "%SELF_DIR:~-1%"=="\" set "SELF_DIR=%SELF_DIR:~0,-1%"
+for %%I in ("%SELF_DIR%") do set "SELF_NAME=%%~nxI"
+set "INSTALL_DIR=%SELF_DIR%"
+if /i "%SELF_NAME%"=="instaladores" for %%I in ("%SELF_DIR%\..") do set "INSTALL_DIR=%%~fI"
+set "WORKDIR=%TEMP%\@@PREFIJO@@_instalador_%RANDOM%"
+mkdir "%WORKDIR%" >nul 2>&1
+set "VJ_WORK=%WORKDIR%"
+set "VJ_SELF=%SELF%"
+set "VJ_DIR=%INSTALL_DIR%"
+rem Con ventana (lo normal): PowerShell extrae el asistente y lo abre oculto; esta consola se cierra y el cuervo va en la ventana.
+rem Con -Silencioso se instala aqui mismo, en la consola, con el banner.
+set "VJ_GUI=1"
+echo %* | findstr /i /c:"-Silencioso" >nul && set "VJ_GUI="
+
+echo.
+echo   Instalador de @@NOMBRE@@ @@VERSION@@ ^| Kuerb0
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$B={param($p) $n=[int]($p/5); Write-Host -NoNewline ([string][char]13+'  Cargando  ['+('#'*$n)+('.'*(20-$n))+'] '+$p+' %%  ') -ForegroundColor Cyan}; & $B 5; $l=Get-Content -LiteralPath '%SELF%' -Encoding UTF8; & $B 40; $s=($l | Select-String -SimpleMatch ':::PSSTART' | Select-Object -Last 1).LineNumber; $e=($l | Select-String -SimpleMatch ':::PSEND' | Select-Object -Last 1).LineNumber; & $B 55; $l[$s..($e-2)] | Set-Content -LiteralPath '%WORKDIR%\instalador.ps1' -Encoding UTF8; & $B 60; if ($env:VJ_GUI) { $q=[char]34; $a=('-NoProfile -ExecutionPolicy Bypass -STA -File '+$q+$env:VJ_WORK+'\instalador.ps1'+$q+' -Self '+$q+$env:VJ_SELF+$q+' -DirPorDefecto '+$q+$env:VJ_DIR+$q+' -LimpiarTemp'); $i=New-Object Diagnostics.ProcessStartInfo('powershell',$a); $i.UseShellExecute=$false; $i.CreateNoWindow=$true; [void][Diagnostics.Process]::Start($i); $k=0; while (-not (Test-Path (Join-Path $env:VJ_WORK 'listo')) -and $k -lt 100) { $k++; & $B ([Math]::Min(95,60+$k*2)); Start-Sleep -Milliseconds 120 } }; & $B 100; Write-Host ''"
+if not exist "%WORKDIR%\instalador.ps1" (
+    echo No se ha podido preparar el instalador ^(fallo al extraer el script^).
+    pause
+    exit /b 1
+)
+
+if defined VJ_GUI exit /b 0
+
+:consola
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $l=[IO.File]::ReadAllLines('%~f0',[Text.Encoding]::UTF8); $a=[Array]::IndexOf($l,':::BANNERSTART'); $b=[Array]::IndexOf($l,':::BANNEREND'); foreach($t in $l[($a+1)..($b-1)]){ $p=$t.Split([char]0xA7); Write-Host -NoNewline $p[0] -ForegroundColor DarkCyan; if($p.Length -gt 1){ Write-Host -NoNewline 'O' -ForegroundColor DarkYellow; Write-Host $p[1] -ForegroundColor DarkCyan } else { Write-Host '' } }; $a=[Array]::IndexOf($l,':::TITULOSTART'); $b=[Array]::IndexOf($l,':::TITULOEND'); $l[($a+1)..($b-1)] | ForEach-Object { Write-Host $_ -ForegroundColor White }"
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -STA -File "%WORKDIR%\instalador.ps1" -Self "%SELF%" -DirPorDefecto "%INSTALL_DIR%" %*
+set "RC=%ERRORLEVEL%"
+rmdir /s /q "%WORKDIR%" >nul 2>&1
+rem (sin pause: -Silencioso es para scripts y no debe quedarse esperando una tecla)
+exit /b %RC%
+
+:::PSSTART
+@@WIZARD@@
+:::PSEND
+
+@@BANNER@@
+
+@@PAYLOAD@@

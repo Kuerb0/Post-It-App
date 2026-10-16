@@ -1,0 +1,596 @@
+# Asistente de instalacion de @@NOMBRE@@ @@VERSION@@ (Windows PowerShell 5.1, ventana WinForms).
+# Lo arranca el .bat con:  -Self <ruta del .bat> -DirPorDefecto <carpeta>   (el .bat lleva los ficheros del programa dentro).
+# Opciones para pruebas o instalacion sin ventana:
+#   -Silencioso -Destino <carpeta>   instala sin ventana, con las opciones por defecto
+#   -SinRed       no descarga Python ni instala librerias      -SinAccesos   ni accesos directos ni desinstalador
+#   -NombreAcceso <texto>   nombre de los accesos directos (por defecto, el del programa)
+#   -ForzarDescarga         (apps Electron) descarga Electron aunque ya haya uno instalado; para probar
+#   -Captura <carpeta>      guarda una imagen de cada pagina de la ventana y sale
+#   -Origen <ruta>          (lo pone el .exe) donde esta el instalador que el usuario ha descargado; si no, es el propio -Self
+#   -LimpiarTemp            (lo pone el .bat o el .exe) borra al terminar la carpeta temporal donde esta este script
+param(
+    [string]$Self, [string]$DirPorDefecto, [string]$Destino,
+    [switch]$Silencioso, [switch]$SinRed, [switch]$SinAccesos,
+    [string]$NombreAcceso, [string]$Captura, [switch]$LimpiarTemp, [string]$Origen, [switch]$ForzarDescarga)
+
+$App = @{ Nombre = '@@NOMBRE@@'; Version = '@@VERSION@@'; Comprueba = '@@COMPRUEBA@@'; Lanzador = '@@LANZADOR@@'
+          Reqs = '@@REQS@@'; Icono = '@@ICONO@@'; Imports = '@@IMPORTS@@'; PipExtra = '@@PIP_EXTRA@@'; ExtraImport = '@@EXTRA_IMPORT@@'
+          Datos = '@@DATOS@@'; Carpetas = @(@@CARPETAS@@); Programa = @(@@PROGRAMA@@)
+          VersionFile = '@@VERSION_FILE@@'; VersionRe = '@@VERSION_RE@@'; PyMin = '@@PY_MIN@@'; PyImport = '@@PY_IMPORT@@'; PipPost = '@@PIP_POST@@'
+          PrimeraVez = '@@PRIMERA_VEZ@@'; PrimeraSenal = '@@PRIMERA_SENAL@@'; Tipo = '@@TIPO@@'; ElectronVersion = '@@ELECTRON_VERSION@@'; ElectronAntiguo = '@@ELECTRON_ANTIGUO@@'; SinArranque = '@@SIN_ARRANQUE@@'; PortalUrl = '@@PORTAL_URL@@'; PortalPrefijo = '@@PORTAL_PREFIJO@@' }
+if (-not $NombreAcceso) { $NombreAcceso = $App.Nombre }
+if (-not $Origen) { $Origen = $Self }
+$CuervoPng = '@@CUERVO_PNG@@'      # el cuervo del banner (lo dibuja generar_instaladores.py a partir de plantillas/cuervo.txt)
+$NombrePng = '@@NOMBRE_PNG@@'      # el nombre del programa en letras grandes
+$CarpetaIco = '@@CARPETA_ICO@@'     # icono de la carpeta: el de la app con una carpeta amarilla abajo a la derecha
+$Pasos = @('Comprobar el equipo (espacio, internet, permisos)', 'Copiar el programa (guardando la versión anterior)', "Buscar Python $($App.PyMin)+ (o instalarlo en la carpeta)",
+           'Instalar las librerías necesarias', 'Comprobar que todo carga', 'Crear los accesos directos y el icono de la carpeta', 'Registrar el desinstalador')
+if ($App.Tipo -eq 'electron') { $Pasos[2] = 'Preparar Electron (el motor de la app, unos 150 MB)'; $Pasos[3] = 'Verificar la descarga (SHA-256)'; $Pasos[4] = 'Comprobar que Electron está listo' }
+
+# ---- desinstalador: se escribe en %LOCALAPPDATA% al instalar (con @DIR@ etc. ya sustituidos), asi no ensucia la carpeta del programa
+$PlantillaDes = @'
+param([switch]$Silencioso, [switch]$ConDatos)
+Add-Type -AssemblyName System.Windows.Forms
+$Dir = '@DIR@'; $Nombre = '@NOMBRE@'; $Acceso = '@ACCESO@'; $Programa = @(@PROGRAMA@); $Reg = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\@NOMBRE@'
+$git = Test-Path -LiteralPath (Join-Path $Dir '.git')
+if (-not $Silencioso) {
+    $t = "Se van a quitar los accesos directos de $Nombre y su entrada en Aplicaciones de Windows."
+    if ($git) { $t += "`n`nEsta carpeta es de desarrollo (tiene git): sus ficheros no se borran." } else { $t += "`n`nTambién se borrará el programa de:`n$Dir`n`nTus datos se conservan salvo que lo pidas en la siguiente pregunta." }
+    if ([Windows.Forms.MessageBox]::Show($t + "`n`n¿Desinstalar?", "Desinstalar $Nombre", 'YesNo', 'Question') -ne 'Yes') { return }
+    if (-not $git -and [Windows.Forms.MessageBox]::Show("¿Borrar también tus datos (descargas, ajustes...)?`nSi dices que no, se quedan en la carpeta.", "Desinstalar $Nombre", 'YesNo', 'Warning') -eq 'Yes') { $ConDatos = $true }
+}
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine -like "*$Dir*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+$w = New-Object -ComObject WScript.Shell
+foreach ($c in 'Desktop', 'Programs', 'Startup') { $f = Join-Path $w.SpecialFolders($c) "$Acceso.lnk"; if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force } }
+Remove-Item -Path $Reg -Recurse -Force -ErrorAction SilentlyContinue
+if (-not $git -and (Test-Path -LiteralPath $Dir)) {
+    if ($ConDatos) { Remove-Item -LiteralPath $Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    else {
+        foreach ($p in $Programa + 'python') { $r = Join-Path $Dir $p; if (Test-Path -LiteralPath $r) { Remove-Item -LiteralPath $r -Recurse -Force -ErrorAction SilentlyContinue } }
+        foreach ($n in 'carpeta.ico', 'desktop.ini') { $r = Join-Path $Dir $n; if (Test-Path -LiteralPath $r) { & attrib -s -h -r $r | Out-Null; Remove-Item -LiteralPath $r -Force -ErrorAction SilentlyContinue } }
+        & attrib -r $Dir | Out-Null
+        if (-not (Get-ChildItem -LiteralPath $Dir -Force)) { Remove-Item -LiteralPath $Dir -Force -ErrorAction SilentlyContinue }
+    }
+}
+if (-not $Silencioso) { [void][Windows.Forms.MessageBox]::Show("$Nombre se ha desinstalado.", "Desinstalar $Nombre", 'OK', 'Information') }
+$mia = Join-Path $env:LOCALAPPDATA ('Kuerb0' + [char]92 + $Nombre)      # este desinstalador y el registro: se borran al terminar (cuando este script ya no los use)
+Start-Process cmd -WindowStyle Hidden -ArgumentList ('/c timeout /t 3 /nobreak >nul & rmdir /s /q "' + $mia + '"')
+'@
+
+# ---- el trabajo de instalar corre en otro hilo (runspace) y avisa a la ventana por una cola
+$Trabajo = {
+    param($Q, $O, $App, $Self, $PlantillaDes, $Acceso, $CarpetaIco, $Pasos)
+    $ErrorActionPreference = 'Continue'
+    $ProgressPreference = 'SilentlyContinue'
+    try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
+    $env:PYTHONIOENCODING = 'utf-8'
+    $R = @{ rc = 0 }
+    function Msg($t, $a, $b) { $Q.Enqueue([pscustomobject]@{ T = $t; A = $a; B = $b }) }
+    function Log($s) { Msg 'log' $s; try { Add-Content -LiteralPath $O.Log -Value ('{0:HH:mm:ss}  {1}' -f (Get-Date), $s) -Encoding UTF8 } catch { } }
+    function Paso($i, $e) { Msg 'paso' $i $e; if ($e -ne 'curso') { try { Add-Content -LiteralPath $O.Log -Value ('{0:HH:mm:ss}  [{1}] {2}' -f (Get-Date), $e, $Pasos[$i]) -Encoding UTF8 } catch { } } }
+    function Prog($p) { Msg 'prog' $p }
+    function Cancelado { if ($O.Cancelar) { throw 'Instalación cancelada.' } }
+    # ejecuta un programa enseñando su salida linea a linea; se puede cancelar
+    function Ejecutar($exe, [string[]]$a) {
+        $i = New-Object Diagnostics.ProcessStartInfo
+        $i.FileName = $exe
+        $i.Arguments = (($a | ForEach-Object { if ($_ -match '[\s"]') { '"' + $_.Replace('"', '\"') + '"' } else { $_ } }) -join ' ')
+        $i.UseShellExecute = $false; $i.CreateNoWindow = $true; $i.RedirectStandardOutput = $true; $i.RedirectStandardError = $true
+        $i.StandardOutputEncoding = [Text.Encoding]::UTF8; $i.StandardErrorEncoding = [Text.Encoding]::UTF8
+        $p = [Diagnostics.Process]::Start($i)
+        $err = $p.StandardError.ReadToEndAsync()
+        while ($null -ne ($s = $p.StandardOutput.ReadLine())) {
+            if ($s.Trim()) { Log $s.TrimEnd() }
+            if ($O.Cancelar) { & taskkill /PID $p.Id /T /F 2>&1 | Out-Null; throw 'Instalación cancelada.' }
+        }
+        $p.WaitForExit()
+        foreach ($l in ($err.Result -split "`r?`n")) { if ($l.Trim()) { Log $l.TrimEnd() } }
+        $R.rc = $p.ExitCode
+    }
+    $codProbar = 'import sys; ' + $(if ($App.PyImport) { 'import ' + $App.PyImport + '; ' } else { '' }) + 'sys.exit(0 if sys.version_info >= (' + ($App.PyMin -replace '\.', ', ') + ') else 1)'
+    function Probar($e) { if (-not $e -or -not (Test-Path -LiteralPath $e)) { return $false }; try { & $e -c $codProbar 2>$null | Out-Null; return ($LASTEXITCODE -eq 0) } catch { return $false } }
+    function Version-De($dir) {
+        $vf = Join-Path $dir $App.VersionFile
+        if (-not (Test-Path -LiteralPath $vf)) { return $null }
+        $t = Get-Content -LiteralPath $vf -Raw -Encoding UTF8
+        if ($App.VersionRe) { if ($t -match $App.VersionRe) { return $Matches[1] } else { return $null } }
+        return $t.Trim()
+    }
+    $dest = $O.Dest
+    $paso = 0
+    try {
+        # 0. comprobar el equipo
+        Paso 0 'curso'; Prog 2
+        Log "Instalador de $($App.Nombre) $($App.Version) · $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+        Log "Windows $([Environment]::OSVersion.Version) · PowerShell $($PSVersionTable.PSVersion)"
+        $aviso = $false
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        $prueba = Join-Path $dest '.prueba_escritura'
+        try { Set-Content -LiteralPath $prueba -Value 'x' -ErrorAction Stop; Remove-Item -LiteralPath $prueba -Force } catch { throw "No puedo escribir en la carpeta $dest. Elige otra." }
+        Log "Escritura en la carpeta: ok"
+        $libre = $null; try { $libre = (Get-Item -LiteralPath $dest).PSDrive.Free } catch { }
+        if ($null -ne $libre) {
+            Log ('Espacio libre en el disco: {0:N1} GB' -f ($libre / 1GB))
+            if ($libre -lt 300MB) { throw 'Casi no queda espacio en el disco (menos de 300 MB).' }
+            if ($libre -lt 1.5GB -and -not $O.SinRed) { Log 'AVISO: poco espacio; se recomiendan 1,5 GB libres para Python y las librerías.'; $aviso = $true }
+        }
+        if (-not $O.SinRed) {
+            try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+            try { $rq = [Net.WebRequest]::Create('https://pypi.org/simple/'); $rq.Method = 'HEAD'; $rq.Timeout = 8000; $rs = $rq.GetResponse(); $rs.Close(); Log 'Internet: ok (pypi.org responde)' }
+            catch { Log 'AVISO: no hay conexión con pypi.org. Si faltan Python o librerías, la instalación fallará.'; $aviso = $true }
+        }
+        if ($env:OneDrive -and $dest.StartsWith($env:OneDrive, [StringComparison]::OrdinalIgnoreCase)) { Log 'La carpeta está dentro de OneDrive: se sincronizará.' }
+        if (Test-Path -LiteralPath (Join-Path $dest '.git')) { Log 'La carpeta tiene git (desarrollo): los ficheros del programa se sobrescriben con los del instalador.' }
+        Paso 0 $(if ($aviso) { 'aviso' } else { 'ok' }); Prog 8; Cancelado
+
+        # 1. extraer (si ya hay una version, guarda copia en anteriores/)
+        $paso = 1; Paso 1 'curso'
+        $antes = Version-De $dest
+        if ($antes) {
+            $copia = Join-Path $dest ('anteriores\{0}_{1:yyyyMMdd-HHmmss}' -f $antes, (Get-Date))
+            foreach ($c in $App.Programa) { $o = Join-Path $dest $c; if (Test-Path -LiteralPath $o) { Copy-Item -LiteralPath $o -Destination (Join-Path $copia $c) -Recurse -Force } }
+            Log "Versión anterior ($antes) guardada en $copia"
+        }
+        $enc = New-Object Text.UTF8Encoding($false)
+        $lineas = [IO.File]::ReadAllLines($Self, $enc)
+        $i = 0; $n = 0
+        while ($i -lt $lineas.Length) {
+            $l = $lineas[$i]
+            if ($l.StartsWith(':::BEGIN ')) {
+                $p = $l.Substring(9).Trim().Split('|'); $rel = $p[0]; $modo = $p[1]
+                $j = $i + 1; $buf = New-Object System.Collections.Generic.List[string]
+                while ($j -lt $lineas.Length -and -not $lineas[$j].StartsWith(':::END')) { $buf.Add($lineas[$j]); $j++ }
+                $d = Join-Path $dest $rel
+                $c = Split-Path -Parent $d
+                if (-not (Test-Path -LiteralPath $c)) { New-Item -ItemType Directory -Path $c -Force | Out-Null }
+                if ($modo -eq 'b64') { [IO.File]::WriteAllBytes($d, [Convert]::FromBase64String(($buf -join ''))) }
+                else { [IO.File]::WriteAllText($d, (($buf -join "`r`n") + "`r`n"), $enc) }
+                if ($p.Length -gt 2 -and $p[2]) {
+                    $h = (Get-FileHash -LiteralPath $d -Algorithm SHA256).Hash.ToLower()
+                    if ($h -ne $p[2]) { throw "El fichero $rel no coincide con el original (¿descarga incompleta o dañada?). Descarga el instalador otra vez." }
+                }
+                $n++; Log "  $rel"
+                $i = $j
+            }
+            $i++
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $dest $App.Comprueba))) { throw "No se ha podido extraer $($App.Comprueba)." }
+        foreach ($c in $App.Carpetas) { New-Item -ItemType Directory -Path (Join-Path $dest $c) -Force | Out-Null }
+        Log "$n ficheros en $dest (verificados con SHA-256)"; Paso 1 'ok'; Prog 18; Cancelado
+
+        if ($App.Tipo -eq 'electron') {
+        # 2-4. Electron: el motor de la app (sin Node.js ni npm): se descarga la publicacion oficial y se comprueba su SHA-256
+        $paso = 2; Paso 2 'curso'
+        $rt = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\electron"
+        $exeE = $null
+        $cands = @((Join-Path $rt 'electron.exe')); if ($App.ElectronAntiguo) { $cands += (Join-Path $env:LOCALAPPDATA $App.ElectronAntiguo) }
+        if (-not $O.ForzarDescarga) { foreach ($c in $cands) { if (-not $exeE -and (Test-Path -LiteralPath $c)) { $exeE = $c } } }
+        if ($exeE) { Log "Electron ya está instalado: $exeE"; Paso 2 'ok'; Paso 3 'ok' }
+        else {
+            if ($O.SinRed) { throw 'Falta Electron y está activado -SinRed.' }
+            $v = $App.ElectronVersion; $nz = "electron-v$v-win32-x64.zip"; $base = "https://github.com/electron/electron/releases/download/v$v"
+            $zip = Join-Path $env:TEMP $nz
+            Log "Descargando $nz ..."
+            $rq = [Net.HttpWebRequest]::Create("$base/$nz"); $rq.Timeout = 30000; $rq.ReadWriteTimeout = 30000
+            $rs = $rq.GetResponse(); $total = $rs.ContentLength
+            $ent = $rs.GetResponseStream(); $sal = [IO.File]::Create($zip)
+            $buf = New-Object byte[] 262144; $hecho = 0; $ult = -1
+            while (($n = $ent.Read($buf, 0, $buf.Length)) -gt 0) {
+                $sal.Write($buf, 0, $n); $hecho += $n
+                if ($total -gt 0) { $pc = [int](100 * $hecho / $total); if ($pc -ne $ult -and $pc % 10 -eq 0) { $ult = $pc; Log "  descargado $pc %"; Prog (20 + [int]($pc * 0.4)) } }
+                if ($O.Cancelar) { $sal.Close(); $ent.Close(); $rs.Close(); Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue; throw 'Instalación cancelada.' }
+            }
+            $sal.Close(); $ent.Close(); $rs.Close()
+            Paso 2 'ok'
+            $paso = 3; Paso 3 'curso'
+            $sumas = (New-Object Net.WebClient).DownloadString("$base/SHASUMS256.txt")
+            $esperado = $null; foreach ($l in ($sumas -split "`n")) { if ($l -match ('^([0-9a-fA-F]{64})\s+\*?' + [regex]::Escape($nz) + '\s*$')) { $esperado = $Matches[1].ToLower() } }
+            $real = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLower()
+            if (-not $esperado -or $real -ne $esperado) { Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue; throw "La descarga de Electron no coincide con su suma SHA-256 (esperada $esperado, obtenida $real)." }
+            Log "SHA-256 correcto: $real"
+            if (Test-Path -LiteralPath $rt) { Remove-Item -LiteralPath $rt -Recurse -Force }
+            New-Item -ItemType Directory -Path $rt -Force | Out-Null
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [IO.Compression.ZipFile]::ExtractToDirectory($zip, $rt)
+            Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+            $exeE = Join-Path $rt 'electron.exe'
+            if (-not (Test-Path -LiteralPath $exeE)) { throw 'La descarga de Electron no trae electron.exe.' }
+            Paso 3 'ok'
+        }
+        Prog 72; Cancelado
+        $paso = 4; Paso 4 'curso'
+        $py = $exeE
+        $vf = (Get-Item -LiteralPath $exeE).VersionInfo.FileVersion
+        if ($vf) { Log "Electron $vf listo en $exeE"; Paso 4 'ok' } else { Log 'No se pudo leer la versión de electron.exe.'; Paso 4 'aviso' }
+        Prog 82; Cancelado
+        } else {
+        # 2. python
+        $paso = 2; Paso 2 'curso'
+        $py = $null
+        $cand = @(Join-Path $dest 'python\python.exe')
+        if (Get-Command py -ErrorAction SilentlyContinue) { $cand += ("$(& py -3 -c 'import sys; print(sys.executable)' 2>$null)").Trim() }
+        if (Get-Command python -ErrorAction SilentlyContinue) { $cand += ("$(& python -c 'import sys; print(sys.executable)' 2>$null)").Trim() }
+        foreach ($e in $cand) { if (-not $py -and (Probar $e)) { $py = $e } }
+        if (-not $py) {
+            if ($O.SinRed) { throw "No hay un Python $($App.PyMin) o superior (y está activado -SinRed)." }
+            Log 'No hay un Python válido: se descarga e instala DENTRO de la carpeta (subcarpeta python).'
+            Log '(puede tardar 1-2 minutos; hace falta internet)'
+            $inst = Join-Path $env:TEMP 'python-instalador.exe'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dest 'herramientas\descargar_python.ps1') $inst 2>&1 | ForEach-Object { Log "$_" }
+            if (-not (Test-Path -LiteralPath $inst)) { throw 'No se ha podido descargar Python. Revisa la conexión a internet y vuelve a intentarlo.' }
+            Cancelado
+            Start-Process -FilePath $inst -ArgumentList @('/quiet', "TargetDir=$dest\python", 'InstallAllUsers=0', 'PrependPath=0', 'Include_pip=1', 'Include_tcltk=1', 'Include_test=0', 'Include_launcher=0') -Wait
+            $py = Join-Path $dest 'python\python.exe'
+            if (-not (Test-Path -LiteralPath $py)) { throw 'Ha fallado la instalación de Python en la carpeta. Borra la subcarpeta python y vuelve a intentarlo.' }
+        }
+        Log "Python: $py"; Paso 2 'ok'; Prog 35; Cancelado
+
+        # 3. librerias
+        $paso = 3; Paso 3 'curso'
+        if (-not $App.Reqs) { Log 'Este programa no necesita librerías.'; Paso 3 'ok' }
+        elseif ($O.SinRed) { Log 'Omitido (-SinRed).'; Paso 3 'aviso' }
+        else {
+            Ejecutar $py @('-m', 'pip', 'install', '--upgrade', 'pip', '--disable-pip-version-check', '-q')
+            Ejecutar $py @('-m', 'pip', 'install', '--disable-pip-version-check', '--no-warn-script-location', '-r', (Join-Path $dest $App.Reqs))
+            if ($R.rc -ne 0) { throw 'Alguna librería no se ha podido instalar (suele ser falta de conexión). Vuelve a ejecutar el instalador: lo ya instalado no se repite.' }
+            if ($App.PipPost) {      # pywin32 se registra con Windows con su propio script
+                $sd = ("$(& $py -c "import sysconfig; print(sysconfig.get_path('scripts'))" 2>$null)").Trim()
+                $sc = Join-Path $sd 'pywin32_postinstall.py'
+                if (Test-Path -LiteralPath $sc) { Log 'Registrando pywin32 con Windows...'; Ejecutar $py @($sc, '-install') }
+            }
+            Paso 3 'ok'
+        }
+        Prog 72; Cancelado
+
+        # 4. comprobar
+        $paso = 4; Paso 4 'curso'
+        if ($App.Imports) { Ejecutar $py @('-c', "import $($App.Imports)") } else { $R.rc = 0 }
+        if ($R.rc -ne 0) { Log 'Alguna librería no carga bien: el programa puede arrancar, pero conviene volver a ejecutar el instalador.'; Paso 4 'aviso' }
+        elseif ($App.PipExtra -and $App.ExtraImport) {
+            Ejecutar $py @('-c', "import $($App.ExtraImport)")
+            if ($R.rc -ne 0 -and -not $O.SinRed) { Log "Instalando $($App.PipExtra) (ventana propia; si falla se usará Edge)..."; Ejecutar $py @('-m', 'pip', 'install', '--disable-pip-version-check', '--no-warn-script-location', $App.PipExtra) }
+            Paso 4 'ok'
+        } else { Paso 4 'ok' }
+        Prog 82; Cancelado
+        }
+
+        # 5. accesos directos e icono de la carpeta
+        $paso = 5; Paso 5 'curso'
+        $pyw = $py -replace 'python\.exe$', 'pythonw.exe'
+        $lanza = $(if ($App.Tipo -eq 'electron') { $dest } else { Join-Path $dest $App.Lanzador })
+        $cwd = $(if ($App.Tipo -eq 'electron') { $dest } else { Split-Path -Parent $lanza })
+        if ($O.SinAccesos) { Log 'Omitido (-SinAccesos).'; Paso 5 'aviso' }
+        else {
+            $w = New-Object -ComObject WScript.Shell
+            function Acceso($carpeta, $oculto) {
+                $s = $w.CreateShortcut((Join-Path $w.SpecialFolders($carpeta) "$Acceso.lnk"))
+                $s.TargetPath = $pyw; $s.Arguments = '"' + $lanza + '"'; $s.WorkingDirectory = $cwd
+                $s.IconLocation = (Join-Path $dest $App.Icono); $s.Description = "$($App.Nombre) $($App.Version)"
+                if ($oculto) { $s.WindowStyle = 7 }
+                $s.Save(); Log "Acceso: $carpeta\$Acceso.lnk"
+            }
+            if ($O.Escritorio) { Acceso 'Desktop' $false }
+            if ($O.Inicio) { Acceso 'Programs' $false }
+            if ($O.Arranque) { Acceso 'Startup' $true }
+            # la carpeta con el icono de la app y una carpeta amarilla abajo a la derecha
+            $ci = Join-Path $dest 'carpeta.ico'; $di = Join-Path $dest 'desktop.ini'
+            foreach ($x in $ci, $di) { if (Test-Path -LiteralPath $x) { & attrib -s -h -r $x | Out-Null } }
+            [IO.File]::WriteAllBytes($ci, [Convert]::FromBase64String($CarpetaIco))
+            [IO.File]::WriteAllText($di, "[.ShellClassInfo]`r`nIconResource=carpeta.ico,0`r`n", [Text.Encoding]::ASCII)
+            & attrib +s +h $di | Out-Null; & attrib +h $ci | Out-Null; & attrib +r $dest | Out-Null
+            $ex = Join-Path $dest '.git\info\exclude'
+            if (Test-Path -LiteralPath (Split-Path -Parent $ex)) { foreach ($x in 'carpeta.ico', 'desktop.ini') { if (-not (Test-Path -LiteralPath $ex) -or -not (Select-String -LiteralPath $ex -SimpleMatch -Pattern $x -Quiet)) { Add-Content -LiteralPath $ex -Value $x } } }
+            Log 'Icono de la carpeta: carpeta.ico + desktop.ini'
+            Paso 5 'ok'
+        }
+        Prog 92; Cancelado
+
+        # 6. desinstalador (en %LOCALAPPDATA%) y entrada en Aplicaciones de Windows
+        $paso = 6; Paso 6 'curso'
+        if ($O.SinAccesos) { Paso 6 'aviso' }
+        else {
+            $dd = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\Desinstalar"
+            New-Item -ItemType Directory -Path $dd -Force | Out-Null
+            $prog = ($App.Programa | ForEach-Object { "'$_'" }) -join ', '
+            $txt = $PlantillaDes.Replace('@DIR@', $dest).Replace('@NOMBRE@', $App.Nombre).Replace('@ACCESO@', $Acceso).Replace('@PROGRAMA@', $prog)
+            [IO.File]::WriteAllText((Join-Path $dd 'desinstalar.ps1'), $txt, (New-Object Text.UTF8Encoding($true)))
+            [IO.File]::WriteAllText((Join-Path $dd 'Desinstalar.bat'), "@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -STA -File `"%~dp0desinstalar.ps1`" %*`r`n", (New-Object Text.UTF8Encoding($false)))
+            $k = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$($App.Nombre)"
+            New-Item -Path $k -Force | Out-Null
+            $v = @{ DisplayName = "$($App.Nombre) $($App.Version)"; DisplayVersion = $App.Version; Publisher = 'Kuerb0'; InstallLocation = $dest
+                    DisplayIcon = (Join-Path $dest $App.Icono); UninstallString = '"' + (Join-Path $dd 'Desinstalar.bat') + '"' }
+            foreach ($nombre in $v.Keys) { Set-ItemProperty -Path $k -Name $nombre -Value $v[$nombre] }
+            Set-ItemProperty -Path $k -Name NoModify -Value 1 -Type DWord; Set-ItemProperty -Path $k -Name NoRepair -Value 1 -Type DWord
+            Log "Desinstalador: $dd"; Paso 6 'ok'
+        }
+        Prog 100
+        Msg 'fin' $true $pyw
+    } catch {
+        $m = $_.Exception.Message
+        Log "ERROR: $m"
+        Paso $paso $(if ($m -eq 'Instalación cancelada.') { 'aviso' } else { 'fallo' })
+        Msg 'fin' $false $m
+    }
+}
+
+# ---- opciones de partida
+function Version-De($dir) {      # la version ya instalada en esa carpeta (o $null)
+    $vf = Join-Path $dir $App.VersionFile
+    if (-not (Test-Path -LiteralPath $vf)) { return $null }
+    $t = Get-Content -LiteralPath $vf -Raw -Encoding UTF8
+    if ($App.VersionRe) { if ($t -match $App.VersionRe) { return $Matches[1] } else { return $null } }
+    return $t.Trim()
+}
+
+function Carpeta-Por-Defecto {
+    if ($Destino) { return $Destino }
+    if ((Split-Path -Leaf (Split-Path -Parent $Origen)) -eq 'instaladores') { return $DirPorDefecto }     # dentro de un repositorio: la carpeta del programa
+    try { $ya = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$($App.Nombre)" -ErrorAction Stop).InstallLocation; if ($ya -and (Test-Path -LiteralPath $ya)) { return $ya } } catch { }
+    return (Join-Path $env:LOCALAPPDATA "Programs\$($App.Nombre)")        # no la carpeta de Descargas desde donde se ejecuta el .bat
+}
+$dir0 = Carpeta-Por-Defecto
+$LogPath = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\instalacion.log"
+New-Item -ItemType Directory -Path (Split-Path -Parent $LogPath) -Force | Out-Null; Set-Content -LiteralPath $LogPath -Value '' -Encoding UTF8
+$Opc = @{ ForzarDescarga = [bool]$ForzarDescarga; Dest = $dir0; Escritorio = $true; Inicio = $true; Arranque = $false; SinRed = [bool]$SinRed; SinAccesos = [bool]$SinAccesos; Log = $LogPath; Cancelar = $false }
+$Q = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
+
+function Lanzar-Trabajo {
+    $script:ps = [powershell]::Create()
+    [void]$script:ps.AddScript($Trabajo.ToString()).AddArgument($Q).AddArgument($Opc).AddArgument($App).AddArgument($Self).AddArgument($PlantillaDes).AddArgument($NombreAcceso).AddArgument($CarpetaIco).AddArgument($Pasos)
+    $script:h = $script:ps.BeginInvoke()
+}
+
+if ($Silencioso) {
+    Lanzar-Trabajo
+    $ok = $false
+    while (-not $h.IsCompleted -or -not $Q.IsEmpty) {
+        $m = $null
+        while ($Q.TryDequeue([ref]$m)) {
+            switch ($m.T) { 'log' { Write-Host "  $($m.A)" } 'paso' { if ($m.B -ne 'curso') { Write-Host ("[{0}] {1}" -f $m.B, $Pasos[$m.A]) } } 'fin' { $ok = $m.A } }
+        }
+        Start-Sleep -Milliseconds 150
+    }
+    if ($LimpiarTemp) { Remove-Item -LiteralPath (Split-Path -Parent $PSCommandPath) -Recurse -Force -ErrorAction SilentlyContinue }
+    exit $(if ($ok) { 0 } else { 1 })
+}
+
+# ---- ventana
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+[Windows.Forms.Application]::EnableVisualStyles()
+$cFondo = [Drawing.Color]::FromArgb(11, 15, 20); $cPanel = [Drawing.Color]::FromArgb(17, 23, 30); $cCian = [Drawing.Color]::FromArgb(46, 196, 182)
+$cOro = [Drawing.Color]::FromArgb(224, 165, 38); $cBlanco = [Drawing.Color]::FromArgb(242, 245, 247); $cGris = [Drawing.Color]::FromArgb(139, 152, 165)
+$cVerde = [Drawing.Color]::FromArgb(61, 220, 132); $cRojo = [Drawing.Color]::FromArgb(255, 92, 92)
+$fMono = { param($t, $s) New-Object Drawing.Font('Consolas', [single]$t, [Drawing.FontStyle]$s) }
+
+$f = New-Object Windows.Forms.Form
+$f.Text = "Instalador de $($App.Nombre) $($App.Version)"; $DW = 780; $DH = 570                                  # tamano de diseno: todo se dibuja a este tamano y se escala segun la ventana
+$pantalla = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$s0 = [Math]::Min(2.0, [Math]::Min($pantalla.Width * 0.92 / $DW, $pantalla.Height * 0.92 / $DH))      # al abrir: lo mas grande que cabe (hasta el doble)
+$f.ClientSize = New-Object Drawing.Size([int]($DW * $s0), [int]($DH * $s0)); $f.StartPosition = 'CenterScreen'
+$f.FormBorderStyle = 'Sizable'; $f.MaximizeBox = $true; $f.MinimumSize = New-Object Drawing.Size(($DW + $f.Width - $f.ClientSize.Width), ($DH + $f.Height - $f.ClientSize.Height)); $f.BackColor = $cFondo; $f.ForeColor = $cGris; $f.Font = & $fMono 10 'Regular'
+$ico = Join-Path (Split-Path -Parent $Origen) $App.Icono
+if ($Origen -like '*.exe') { try { $f.Icon = [Drawing.Icon]::ExtractAssociatedIcon($Origen) } catch { } }      # el .exe lleva el icono de la app
+elseif (Test-Path -LiteralPath $ico) { try { $f.Icon = New-Object Drawing.Icon($ico) } catch { } }
+
+function Etiqueta($texto, $x, $y, $w, $h, $color, $fuente) {
+    $l = New-Object Windows.Forms.Label; $l.Text = $texto; $l.Location = New-Object Drawing.Point($x, $y); $l.Size = New-Object Drawing.Size($w, $h)
+    $l.ForeColor = $color; $l.BackColor = [Drawing.Color]::Transparent; if ($fuente) { $l.Font = $fuente }; return $l
+}
+function Boton($texto, $x) {
+    $b = New-Object Windows.Forms.Button; $b.Text = $texto; $b.Size = New-Object Drawing.Size(130, 34); $b.Location = New-Object Drawing.Point($x, 530)
+    $b.FlatStyle = 'Flat'; $b.FlatAppearance.BorderColor = $cCian; $b.BackColor = $cFondo; $b.ForeColor = $cCian; $b.Cursor = 'Hand'
+    $b.FlatAppearance.MouseOverBackColor = [Drawing.Color]::FromArgb(20, 44, 48); return $b
+}
+
+# cabecera: el cuervo a la izquierda; a la derecha el nombre en letras grandes, que es el instalador y la version
+function Imagen($b64, $x, $y) {
+    $i = [Drawing.Image]::FromStream((New-Object IO.MemoryStream(, [Convert]::FromBase64String($b64))))
+    $p = New-Object Windows.Forms.PictureBox; $p.Image = $i; $p.SizeMode = 'Zoom'; $p.Size = $i.Size; $p.Location = New-Object Drawing.Point($x, $y); $p.BackColor = $cFondo; $f.Controls.Add($p); return $i
+}
+$iCuervo = Imagen $CuervoPng 18 10
+$xd = 18 + $iCuervo.Width + 26
+$null = Imagen $NombrePng $xd 28
+$f.Controls.Add((Etiqueta 'INSTALADOR' $xd 142 200 30 $cBlanco (& $fMono 18 'Bold')))
+$f.Controls.Add((Etiqueta "V E R S I Ó N   $($App.Version)" ($xd + 200) 150 300 22 $cCian (& $fMono 11 'Regular')))
+$f.Controls.Add((Etiqueta "KUERB0  ·  Without data, you’re just another person with an opinion" $xd 178 (762 - $xd) 18 $cGris (& $fMono 8.5 'Italic')))
+$linea = New-Object Windows.Forms.Panel; $linea.Location = New-Object Drawing.Point(18, 202); $linea.Size = New-Object Drawing.Size(744, 2); $linea.BackColor = $cCian; $linea.Anchor = 'Top,Left,Right'; $f.Controls.Add($linea)
+
+function Pagina { $p = New-Object Windows.Forms.Panel; $p.Location = New-Object Drawing.Point(18, 214); $p.Size = New-Object Drawing.Size(744, 300); $p.BackColor = $cFondo; $p.Anchor = 'Top,Left,Right,Bottom'; $p.Visible = $false; $f.Controls.Add($p); return $p }
+$p1 = Pagina; $p2 = Pagina; $p3 = Pagina; $p4 = Pagina
+
+# pagina 1: bienvenida
+$p1.Controls.Add((Etiqueta "Bienvenido al instalador de $($App.Nombre). Esto va a:" 4 4 730 24 $cBlanco (& $fMono 11 'Bold')))
+$p1.Controls.Add((Etiqueta ("  [1] Comprobar tu equipo (espacio, internet, permisos)`r`n  [2] Copiar el programa en la carpeta que elijas`r`n        (si ya hay una versión, se guarda una copia)`r`n  [3] Buscar Python $($App.PyMin)+ o, si no hay, instalar uno EN ESA CARPETA`r`n        (no hace falta ser administrador)`r`n  [4] Instalar las librerías que necesita el programa`r`n  [5] Crear los accesos directos y el icono de la carpeta`r`n  [6] Dejar un desinstalador en «Aplicaciones» de Windows") 4 38 730 150 $cGris $null))
+$p1.Controls.Add((Etiqueta ("Tus datos ($($App.Datos)) no se tocan si ya existen.`r`nTodo se queda en la carpeta elegida. No se manda ni se guarda`r`nningún dato tuyo en ningún sitio ajeno.") 4 196 730 56 $cVerde $null))
+$lbNueva = Etiqueta '' 4 262 730 24 $cOro $null; $lbNueva.Cursor = 'Hand'; $p1.Controls.Add($lbNueva)
+$lbNueva.Add_Click({ Start-Process 'https://kuerb0.github.io/portal/' })
+
+# pagina 2: opciones
+$p2.Controls.Add((Etiqueta 'Carpeta de instalación' 4 4 730 24 $cBlanco (& $fMono 11 'Bold')))
+$tbDir = New-Object Windows.Forms.TextBox; $tbDir.Location = New-Object Drawing.Point(4, 38); $tbDir.Size = New-Object Drawing.Size(590, 26); $tbDir.Text = $Opc.Dest
+$tbDir.BackColor = $cPanel; $tbDir.ForeColor = $cBlanco; $tbDir.BorderStyle = 'FixedSingle'; $tbDir.Anchor = 'Top,Left,Right'; $p2.Controls.Add($tbDir)
+$bExam = Boton 'Examinar...' 604; $bExam.Location = New-Object Drawing.Point(604, 34); $bExam.Size = New-Object Drawing.Size(130, 30); $bExam.Anchor = 'Top,Right'; $p2.Controls.Add($bExam)
+$bExam.Add_Click({ $d = New-Object Windows.Forms.FolderBrowserDialog; $d.SelectedPath = $tbDir.Text; if ($d.ShowDialog() -eq 'OK') { $tbDir.Text = $d.SelectedPath } })
+$p2.Controls.Add((Etiqueta 'Elige una carpeta donde puedas escribir (una de OneDrive también vale).' 4 70 730 20 $cGris (& $fMono 9 'Italic')))
+$lbPrev = Etiqueta '' 4 92 730 40 $cGris (& $fMono 9.5 'Regular'); $p2.Controls.Add($lbPrev)
+$p2.Controls.Add((Etiqueta 'Accesos directos' 4 142 730 24 $cBlanco (& $fMono 11 'Bold')))
+function Casilla($texto, $y, $marcada) { $c = New-Object Windows.Forms.CheckBox; $c.Text = $texto; $c.Location = New-Object Drawing.Point(8, $y); $c.Size = New-Object Drawing.Size(720, 26); $c.Checked = $marcada; $c.ForeColor = $cBlanco; $c.FlatStyle = 'Flat'; $c.Cursor = 'Hand'; $p2.Controls.Add($c); return $c }
+$ckEsc = Casilla 'Acceso directo en el Escritorio' 172 $true
+$ckIni = Casilla 'Entrada en el menú Inicio' 202 $true
+$ckArr = Casilla "Arrancar $($App.Nombre) solo al encender el ordenador" 232 $false
+if ($App.SinArranque) { $ckArr.Visible = $false }      # la propia app se registra para arrancar con Windows
+
+# pagina 3: instalando
+$lbPasos = @()
+for ($k = 0; $k -lt $Pasos.Count; $k++) { $l = Etiqueta "" 4 (2 + 24 * $k) 730 22 $cGris $null; $p3.Controls.Add($l); $lbPasos += $l }
+$pista = New-Object Windows.Forms.Panel; $pista.Location = New-Object Drawing.Point(4, 180); $pista.Size = New-Object Drawing.Size(690, 16); $pista.BackColor = $cPanel; $pista.Anchor = 'Top,Left,Right'; $p3.Controls.Add($pista)
+$relleno = New-Object Windows.Forms.Panel; $relleno.Location = New-Object Drawing.Point(0, 0); $relleno.Size = New-Object Drawing.Size(0, 16); $relleno.BackColor = $cCian; $pista.Controls.Add($relleno)
+$lbPct = Etiqueta '0 %' 700 178 44 20 $cCian $null; $lbPct.Anchor = 'Top,Right'; $p3.Controls.Add($lbPct)
+$rtLog = New-Object Windows.Forms.RichTextBox; $rtLog.Location = New-Object Drawing.Point(4, 206); $rtLog.Size = New-Object Drawing.Size(730, 90); $rtLog.ReadOnly = $true
+$rtLog.BackColor = [Drawing.Color]::FromArgb(7, 10, 14); $rtLog.ForeColor = $cGris; $rtLog.Font = & $fMono 8.5 'Regular'; $rtLog.BorderStyle = 'None'; $rtLog.Anchor = 'Top,Left,Right,Bottom'; $p3.Controls.Add($rtLog)
+
+# pagina 4: fin
+$lbFin = Etiqueta '' 4 4 730 30 $cVerde (& $fMono 14 'Bold'); $p4.Controls.Add($lbFin)
+$lbFin2 = Etiqueta '' 4 50 730 120 $cGris $null; $p4.Controls.Add($lbFin2)
+$ckAbrir = New-Object Windows.Forms.CheckBox; $ckAbrir.Text = "Abrir $($App.Nombre) al terminar"; $ckAbrir.Location = New-Object Drawing.Point(8, 196); $ckAbrir.Size = New-Object Drawing.Size(500, 26)
+$ckAbrir.Checked = $true; $ckAbrir.ForeColor = $cBlanco; $ckAbrir.FlatStyle = 'Flat'; $ckAbrir.Cursor = 'Hand'; $p4.Controls.Add($ckAbrir)
+$bVer = Boton 'Ver registro' 4; $bVer.Location = New-Object Drawing.Point(4, 236); $bVer.Size = New-Object Drawing.Size(170, 32); $p4.Controls.Add($bVer)
+$bCopiar = Boton 'Copiar registro' 184; $bCopiar.Location = New-Object Drawing.Point(184, 236); $bCopiar.Size = New-Object Drawing.Size(190, 32); $p4.Controls.Add($bCopiar)
+$bCarp = Boton 'Abrir carpeta' 384; $bCarp.Location = New-Object Drawing.Point(384, 236); $bCarp.Size = New-Object Drawing.Size(170, 32); $p4.Controls.Add($bCarp)
+$bGuia = Boton 'Guía rápida' 564; $bGuia.Location = New-Object Drawing.Point(564, 236); $bGuia.Size = New-Object Drawing.Size(170, 32); $p4.Controls.Add($bGuia)
+$bCarp.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $Opc.Dest + '"') })
+$bGuia.Add_Click({ Start-Process 'https://kuerb0.github.io/portal/' })
+$bVer.Add_Click({ Start-Process notepad.exe -ArgumentList ('"' + $LogPath + '"') })
+$bCopiar.Add_Click({ try { Set-Clipboard -Value (Get-Content -LiteralPath $LogPath -Raw -Encoding UTF8); $bCopiar.Text = '¡Copiado!' } catch { $bCopiar.Text = 'No se pudo copiar' } })
+
+$bAtras = Boton '< Atrás' 328; $bSig = Boton 'Siguiente >' 468; $bCan = Boton 'Cancelar' 632
+foreach ($b in $bAtras, $bSig, $bCan) { $b.Anchor = 'Bottom,Right' }
+$f.Controls.AddRange(@($bAtras, $bSig, $bCan))
+$estado = @{ pagina = 1; pyw = $null; trabajando = $false; pct = 0 }
+$pista.Add_Resize({ $relleno.Size = New-Object Drawing.Size([int]($pista.Width * $estado.pct / 100), $pista.Height) })
+
+# escalado: cada control guarda su tamano de diseno; al cambiar la ventana todo se redimensiona por igual (letra incluida) y se centra
+function Registrar($c) { foreach ($h in $c.Controls) { if ($h -eq $relleno) { continue }; $h.Tag = @{ B = $h.Bounds; F = $h.Font.Size }; $h.Anchor = 'Top,Left'; Registrar $h } }
+function Escalar($c, $s, $ox) {
+    foreach ($h in $c.Controls) {
+        if ($h.Tag -isnot [hashtable]) { continue }
+        $b = $h.Tag.B
+        $x = [int]($b.X * $s) + $(if ($c -eq $f) { $ox } else { 0 })
+        $h.Bounds = New-Object Drawing.Rectangle($x, [int]($b.Y * $s), [int]($b.Width * $s), [int]($b.Height * $s))
+        $tam = [single]($h.Tag.F * $s)
+        if ([Math]::Abs($h.Font.Size - $tam) -gt 0.05) { $h.Font = New-Object Drawing.Font($h.Font.FontFamily, $tam, $h.Font.Style) }
+        Escalar $h $s 0
+    }
+}
+function Reajustar {
+    $w = $f.ClientSize.Width; $h = $f.ClientSize.Height
+    if ($w -lt 50 -or $h -lt 50) { return }
+    $s = [Math]::Min($w / $DW, $h / $DH)
+    $f.SuspendLayout(); Escalar $f $s ([int](($w - $DW * $s) / 2)); $f.ResumeLayout()
+}
+Registrar $f
+$f.Add_Resize({ Reajustar })
+$f.Add_Shown({ Reajustar; if ($LimpiarTemp) { New-Item -ItemType File -Path (Join-Path (Split-Path -Parent $PSCommandPath) 'listo') -Force | Out-Null } })      # avisa al .bat de que la ventana ya esta abierta (y su barra de carga puede cerrarse)
+
+function Pintar-Paso($k, $e) {
+    $glifo, $col = switch ($e) { 'ok' { '[ OK ]', $cVerde } 'curso' { '[ >> ]', $cCian } 'fallo' { '[FAIL]', $cRojo } 'aviso' { '[WARN]', $cOro } default { '[    ]', $cGris } }
+    $lbPasos[$k].Text = "$glifo  $($Pasos[$k])"; $lbPasos[$k].ForeColor = $col
+}
+function Ir($n) {
+    $estado.pagina = $n
+    $p1.Visible = ($n -eq 1); $p2.Visible = ($n -eq 2); $p3.Visible = ($n -eq 3); $p4.Visible = ($n -eq 4)
+    $bAtras.Visible = ($n -eq 2); $bCan.Visible = ($n -le 3); $bSig.Enabled = ($n -ne 3)
+    if ($n -eq 2) { Detectar }
+    $bSig.Text = switch ($n) { 2 { 'Instalar' } 4 { 'Terminar' } default { 'Siguiente >' } }
+}
+for ($k = 0; $k -lt $Pasos.Count; $k++) { Pintar-Paso $k 'pend' }
+
+function Detectar {
+    $d = $tbDir.Text.Trim(); $txt = ''; $col = $cGris
+    try {
+        if ($d -and [IO.Path]::IsPathRooted($d)) {
+            $v = Version-De $d
+            if ($v) {
+                $txt = if ($v -eq $App.Version) { "Ya hay $($App.Nombre) $v en esta carpeta: se reinstalará. Se guarda una copia de la actual en anteriores\." } else { "Ya hay $($App.Nombre) $v en esta carpeta: se actualizará a $($App.Version). Se guarda una copia de la actual en anteriores\." }
+                $col = $cOro
+            } elseif (Test-Path -LiteralPath (Join-Path $d '.git')) { $txt = 'Carpeta con git (desarrollo): los ficheros del programa se sobrescribirán con los del instalador.'; $col = $cOro }
+            elseif (Test-Path -LiteralPath $d) { $txt = if (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1) { 'La carpeta tiene otros ficheros: no se tocan.' } else { 'Carpeta vacía: instalación nueva.' }; $col = $cVerde }
+            else { $txt = 'La carpeta no existe: se creará.'; $col = $cVerde }
+        }
+    } catch { }
+    $lbPrev.Text = $txt; $lbPrev.ForeColor = $col
+}
+$tbDir.Add_TextChanged({ Detectar })
+
+function Pedir-Cancelar {
+    if (-not $estado.trabajando -or $Opc.Cancelar) { return }
+    if ([Windows.Forms.MessageBox]::Show('¿Cancelar la instalación? Lo que ya se haya copiado se queda, y puedes volver a ejecutar el instalador.', 'Cancelar', 'YesNo', 'Question') -eq 'Yes') { $Opc.Cancelar = $true; $bCan.Enabled = $false; $bCan.Text = 'Cancelando...' }
+}
+
+function Lanzador-Final {      # lo que se abre al terminar: la app, o su asistente de configuracion si es la primera vez
+    if ($App.Tipo -eq 'electron') { return $Opc.Dest }
+    $l = $App.Lanzador
+    if ($App.PrimeraVez -and -not ((Test-Path -LiteralPath (Join-Path $Opc.Dest $App.PrimeraSenal)) -or (Test-Path -LiteralPath (Join-Path $Opc.Dest 'config.json')))) { $l = $App.PrimeraVez }
+    return (Join-Path $Opc.Dest $l)
+}
+
+function Terminar-Pagina($ok, $motivo) {
+    $bCan.Enabled = $true; $bCan.Text = 'Cancelar'
+    $bCarp.Visible = [bool]$ok; $bGuia.Visible = [bool]$ok
+    if ($ok) {
+        $lbFin.Text = '[ OK ]  Instalación terminada'; $lbFin.ForeColor = $cVerde
+        $lbFin2.Text = "$($App.Nombre) $($App.Version) está instalado en:`r`n  $($Opc.Dest)`r`n`r`nPuedes desinstalarlo desde «Aplicaciones» de Windows."; $ckAbrir.Visible = $true
+        $ckAbrir.Text = $(if ($App.PrimeraVez -and (Lanzador-Final) -like "*$($App.PrimeraVez)") { 'Abrir el asistente de configuración al terminar' } else { "Abrir $($App.Nombre) al terminar" })
+    } else {
+        $lbFin.Text = '[FAIL]  La instalación no se ha completado'; $lbFin.ForeColor = $cRojo
+        if ($motivo -eq 'Instalación cancelada.') {
+            $lbFin.Text = '[WARN]  Instalación cancelada'; $lbFin.ForeColor = $cOro
+            $lbFin2.Text = "Has cancelado la instalación. Lo ya copiado se queda.`r`nPuedes volver a ejecutar el instalador cuando quieras: lo ya hecho no se repite."
+        } else {
+            $lbFin2.Text = "Motivo: $motivo`r`nSuele bastar con volver a ejecutar el instalador: lo ya hecho no se repite.`r`nSi se repite, pulsa «Copiar registro» y mándame el texto."
+        }
+        $ckAbrir.Visible = $false
+    }
+    Ir 4
+}
+
+$timer = New-Object Windows.Forms.Timer; $timer.Interval = 120
+$timer.Add_Tick({
+    $m = $null
+    while ($Q.TryDequeue([ref]$m)) {
+        switch ($m.T) {
+            'log' { $rtLog.AppendText("$($m.A)`r`n"); $rtLog.ScrollToCaret() }
+            'paso' { Pintar-Paso $m.A $m.B }
+            'prog' { $estado.pct = $m.A; $relleno.Width = [int]($pista.Width * $m.A / 100); $lbPct.Text = "$($m.A) %" }
+            'fin' { $estado.trabajando = $false; $estado.pyw = $m.B; Terminar-Pagina $m.A $m.B }
+            'nueva' { try { if ([version]$m.A -gt [version]$App.Version) { $lbNueva.Text = "Hay una versión más nueva ($($m.A)): descárgala en kuerb0.github.io/portal" } } catch { } }
+        }
+    }
+})
+
+$bCan.Add_Click({ if ($estado.trabajando) { Pedir-Cancelar } else { $f.Close() } })
+$f.AcceptButton = $bSig; $f.CancelButton = $bCan      # Intro = siguiente, Esc = cancelar
+$bAtras.Add_Click({ Ir 1 })
+$bSig.Add_Click({
+    switch ($estado.pagina) {
+        1 { Ir 2 }
+        2 {
+            $d = $tbDir.Text.Trim()
+            if (-not $d -or -not [IO.Path]::IsPathRooted($d)) { [void][Windows.Forms.MessageBox]::Show('Escribe o elige una carpeta (ruta completa).', 'Carpeta', 'OK', 'Warning'); return }
+            $Opc.Dest = $d; $Opc.Escritorio = $ckEsc.Checked; $Opc.Inicio = $ckIni.Checked; $Opc.Arranque = $ckArr.Checked
+            $estado.trabajando = $true; Ir 3; Lanzar-Trabajo
+        }
+        4 { if ($ckAbrir.Checked -and $ckAbrir.Visible -and $estado.pyw) { $l = Lanzador-Final; Start-Process -FilePath $estado.pyw -ArgumentList ('"' + $l + '"') -WorkingDirectory $(if ($App.Tipo -eq 'electron') { $l } else { Split-Path -Parent $l }) }; $f.Close() }
+    }
+})
+$f.Add_FormClosing({ if ($estado.trabajando) { $_.Cancel = $true; Pedir-Cancelar } })
+
+if ($Captura) {
+    New-Item -ItemType Directory -Path $Captura -Force | Out-Null
+    $f.Show(); [Windows.Forms.Application]::DoEvents()
+    function Foto($nombre) { [Windows.Forms.Application]::DoEvents(); $b = New-Object Drawing.Bitmap($f.Width, $f.Height); $f.DrawToBitmap($b, (New-Object Drawing.Rectangle(0, 0, $f.Width, $f.Height))); $b.Save((Join-Path $Captura "$nombre.png")); $b.Dispose() }
+    Ir 1; Foto '1-bienvenida'; Ir 2; Foto '2-opciones'
+    $lbNueva.Text = 'Hay una versión más nueva (1.8.0): descárgala en kuerb0.github.io/portal'; Ir 1; Foto '1b-nueva'
+    Ir 3; 0..6 | ForEach-Object { Pintar-Paso $_ $(if ($_ -lt 3) { 'ok' } elseif ($_ -eq 3) { 'curso' } else { 'pend' }) }; $relleno.Width = 380; $lbPct.Text = '55 %'
+    $rtLog.Text = "  py\app_vuelos.py`r`n  py\vuelos_app.pyw`r`n12 ficheros en C:\Programas\$($App.Nombre)`r`nPython: C:\Programas\$($App.Nombre)\python\python.exe`r`nCollecting streamlit`r`nSuccessfully installed streamlit-1.50.0"
+    Foto '3-instalando'; Terminar-Pagina $true $null; Foto '4-fin'; Terminar-Pagina $false 'No hay conexión'; Foto '5-error'
+    $f.Dispose(); exit 0
+}
+Ir 1
+$timer.Start()
+if (-not $Captura) {      # ¿hay una version mas nueva en el portal? (una sola consulta; no se envia nada)
+    $psv = [powershell]::Create()
+    [void]$psv.AddScript({ param($Q, $url, $pref)
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $rq = [Net.WebRequest]::Create($url); $rq.Timeout = 5000; $rs = $rq.GetResponse()
+            $t = (New-Object IO.StreamReader($rs.GetResponseStream())).ReadToEnd(); $rs.Close()
+            $max = $null
+            foreach ($m in [regex]::Matches($t, [regex]::Escape($pref) + ' (\d+(?:\.\d+)*) - Instalador')) { $v = [version]$m.Groups[1].Value; if (-not $max -or $v -gt $max) { $max = $v } }
+            if ($max) { $Q.Enqueue([pscustomobject]@{ T = 'nueva'; A = $max.ToString(); B = $null }) }
+        } catch { }
+    }).AddArgument($Q).AddArgument($App.PortalUrl).AddArgument($App.PortalPrefijo)
+    [void]$psv.BeginInvoke()
+}
+[void]$f.ShowDialog()
+if ($LimpiarTemp) { Remove-Item -LiteralPath (Split-Path -Parent $PSCommandPath) -Recurse -Force -ErrorAction SilentlyContinue }   # el .bat ya se ha cerrado: limpia su carpeta temporal
