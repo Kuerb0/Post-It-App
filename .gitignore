@@ -2,3 +2,5 @@ node_modules/
 notes.json
 *.log
 desktop.ini
+build/
+dist/

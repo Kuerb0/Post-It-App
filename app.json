@@ -1,0 +1,25 @@
+{
+  "nombre": "PostIt",
+  "nombre_visible": "Post-It",
+  "version_fichero": "package.json",
+  "version_regex": "\"version\"\\s*:\\s*\"([^\"]+)\"",
+  "icono": "assets/icon.ico",
+  "icono_png": "assets/icon.png",
+  "exe": {
+    "modo": "electron",
+    "electron": "44.7.2",
+    "archivos": [
+      "package.json",
+      "main.js",
+      "preload.js",
+      "note.html",
+      "assets"
+    ],
+    "datos_usuario": [
+      "notes.json"
+    ]
+  },
+  "prueba": {
+    "segundos": 10
+  }
+}
