@@ -142,6 +142,8 @@ function resets(){
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
   ed.innerHTML=n.html||'<div><br></div>';
+  ed.contentEditable=!n.agenda; // la nota Agenda la rellena el Calendario: solo lectura
+  document.getElementById('tb').style.display=document.getElementById('dts').style.display=n.agenda?'none':'';
   resets();
 }
 

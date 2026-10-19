@@ -1,13 +1,14 @@
 const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog}=require('electron');
+const S=require('./sync');
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=require('child_process');
 
 const DATA=path.join(__dirname,'notes.json'); // vive en OneDrive → se sincroniza entre equipos
 const ICON=path.join(__dirname,'assets','icon.png');
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f48fb1','#ce93d8'];
-let notes=[],pos={},last='',POS,tray;
+let notes=[],pos={},last='',POS,tray,CFG,cfg={},carpeta=null,ag=null,firma='',tExp;
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
-const save=()=>fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));
+const save=()=>{fs.writeFileSync(DATA,last=JSON.stringify(notes.filter(n=>!n.agenda),null,1));exportar()}; // la nota Agenda no se guarda: se rehace del Calendario
 const find=id=>notes.find(n=>n.id==id);
 const win=e=>BrowserWindow.fromWebContents(e.sender);
 
@@ -55,8 +56,45 @@ function add(){
   notes.push(n);save();open(n);
 }
 
+// ---- sincronizacion con el Calendario por una carpeta compartida (ver sync.js)
+// notas-<equipo>.json: las lineas con hora de estas notas · agenda-<equipo>.json: lo que escribe el Calendario
+const guardarCfg=()=>fs.writeFileSync(CFG,JSON.stringify(cfg));
+function exportar(){ // con un respiro: guardar se llama a cada tecla
+  clearTimeout(tExp);
+  tExp=setTimeout(()=>{
+    if(!carpeta)return;
+    try{
+      const r=S.extraer(notes,new Date(),cfg.vistos||{});
+      cfg.vistos=r.vistos;guardarCfg();S.escribirNotas(carpeta,r.items);
+    }catch(err){console.error('sync',err)}
+  },1500);
+}
+function refrescarAgenda(){
+  if(!carpeta)return;
+  const f=S.firmaAgenda(carpeta)+'|'+S.iso(new Date());
+  if(!f.split('|')[0]||f==firma)return;
+  firma=f;
+  const ahora=new Date(),html=S.htmlAgenda(S.leerAgenda(carpeta,ahora),ahora);
+  if(!ag){ag={id:crypto.randomUUID(),color:'#b3e5fc',agenda:true,html};notes.push(ag);open(ag);return}
+  ag.html=html;
+  if(!notes.includes(ag))notes.push(ag);
+  const w=wins.get(ag.id);if(w)w.webContents.send('set',ag);else open(ag);
+}
+function elegirCarpeta(){
+  const r=dialog.showOpenDialogSync({title:'Carpeta compartida con el Calendario',defaultPath:carpeta||undefined,properties:['openDirectory','createDirectory']});
+  if(!r)return;
+  cfg.carpeta=r[0];guardarCfg();carpeta=r[0];firma='';exportar();refrescarAgenda();
+}
+function iniciarSync(){
+  CFG=path.join(app.getPath('userData'),'sync.json');cfg=read(CFG,{});
+  carpeta=S.carpetaCompartida({guardada:cfg.carpeta,raiz:__dirname}).ruta;
+  exportar();refrescarAgenda();
+  setInterval(refrescarAgenda,15000);
+  setInterval(exportar,3600000); // «hoy» y «mañana» cambian de dia aunque la nota no se toque
+}
+
 ipcMain.handle('get',(e,id)=>find(id));
-ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n){n.html=html;save()}});
+ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n&&!n.agenda){n.html=html;save()}});
 ipcMain.on('color',(e,id,c)=>{ // c = #rrggbb elegido en el selector
   const n=find(id);if(!n||!/^#[0-9a-f]{6}$/i.test(c))return;
   n.color=c;save();win(e).setBackgroundColor(c);
@@ -74,6 +112,7 @@ ipcMain.on('new',add);
 ipcMain.on('close',e=>win(e).close());
 ipcMain.on('del',(e,id)=>{
   const n=find(id);if(!n)return;
+  if(n.agenda)return win(e).close();
   if(n.html.replace(/<[^>]*>/g,'').trim()&&dialog.showMessageBoxSync(win(e),
     {type:'question',buttons:['Eliminar','Cancelar'],defaultId:1,cancelId:1,message:'¿Eliminar esta nota?'}))return;
   notes=notes.filter(x=>x!=n);save();win(e).close();
@@ -89,7 +128,7 @@ app.whenReady().then(()=>{
     '<div>Repetir: @diario @semanal @mensual @lunes @cada3d</div>'+
     '<div><input type="checkbox"> regar plantas @diario</div>'+
     '<div><input type="checkbox"> informe @lunes</div>'});
-  save();showAll();
+  save();showAll();iniciarSync();
 
   // arranque con Windows
   app.setLoginItemSettings({openAtLogin:true,path:process.execPath,args:[__dirname]});
@@ -97,13 +136,13 @@ app.whenReady().then(()=>{
   tray=new Tray(nativeImage.createFromPath(ICON).resize({width:16,height:16}));
   tray.setToolTip('Post-its');
   tray.setContextMenu(Menu.buildFromTemplate([
-    {label:'Nueva nota',click:add},{label:'Mostrar todas',click:showAll},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
+    {label:'Nueva nota',click:add},{label:'Mostrar todas',click:showAll},{label:'Carpeta compartida con el Calendario…',click:elegirCarpeta},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
   tray.on('click',showAll);
 
   // OneDrive trajo cambios de otro equipo → recargar
   fs.watchFile(DATA,{interval:3000},()=>{
     let s,j;try{s=fs.readFileSync(DATA,'utf8');if(s==last)return;j=JSON.parse(s)}catch{return}
-    const had=new Set(notes.map(n=>n.id));last=s;notes=j;
+    const had=new Set(notes.map(n=>n.id));last=s;notes=j;if(ag)notes.push(ag);
     for(const [id,w] of wins)if(!find(id))w.close();
     for(const n of notes){
       const w=wins.get(n.id);
