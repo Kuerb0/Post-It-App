@@ -20,6 +20,9 @@
     ]
   },
   "prueba": {
-    "segundos": 10
+    "segundos": 10,
+    "argumentos": [
+      "--user-data-dir={tmp}/datos"
+    ]
   }
 }

@@ -2,6 +2,7 @@
 <html lang="es"><meta charset="utf-8"><title>Post-it</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden}
+:root{--ibeam:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'><path d='M8 3h8M12 3v18M8 21h8' stroke='black' stroke-width='5' stroke-linecap='round' fill='none'/><path d='M8 3h8M12 3v18M8 21h8' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/></svg>") 10 10,text}
 body{display:flex;flex-direction:column;font:15px 'Segoe UI',sans-serif;color:#222;position:relative}
 svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #bar{height:30px;flex:none;display:flex;align-items:center;background:#0001;-webkit-app-region:drag}
@@ -9,7 +10,7 @@ svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-l
 button{-webkit-app-region:no-drag;border:0;background:none;color:inherit;cursor:pointer;width:32px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;opacity:.6}
 button:hover{opacity:1;background:#0002}
 button.on{opacity:1;background:#0003}
-#ed{flex:1;overflow:auto;padding:8px 10px;outline:0;word-break:break-word}
+#ed{flex:1;overflow:auto;padding:8px 10px;outline:0;word-break:break-word;cursor:var(--ibeam,text)}
 #ed input{margin:0 6px 0 0;vertical-align:middle}
 #ed div:has(>input:checked){text-decoration:line-through;opacity:.55}
 #ed h3{font-size:19px;margin:0}
