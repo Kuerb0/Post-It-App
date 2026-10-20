@@ -29,10 +29,10 @@ r = ext(cab + '<div>9:00 A</div><div>Jueves 22/10</div><div>9:00 A</div>');
 assert.deepStrictEqual(r.map(i => i.inicio), ['2026-10-21T09:00:00', '2026-10-22T09:00:00']);
 assert.notStrictEqual(r[0].id, r[1].id);                            // mismo texto en otro día, otro id
 
-// --- solo notas unidas; la nota Agenda y los eventos pintados del Calendario no vuelven
+// --- solo notas unidas; los eventos pintados del Calendario (con su casilla) no vuelven
 assert.strictEqual(ext(cab + '<div>18:00 Dentista</div>', {}).length, 0);
-assert.strictEqual(ext(cab + '<div>18:00 Dentista</div>', { cal: true, agenda: true }).length, 0);
-assert.strictEqual(ext(cab + '<div class="cal" contenteditable="false">📅 10:00 Reunión</div>').length, 0);
+assert.strictEqual(ext(cab + '<div class="cal" contenteditable="false"><input type="checkbox">📅 10:00 Reunión</div>').length, 0);
+assert.strictEqual(ext(cab + '<div class="cal" contenteditable="false"><input type="checkbox" checked>📅 10:00 Reunión</div><div>18:00 Dentista</div>').length, 1);
 
 // --- año siguiente para una fecha que ya pasó hace mucho; fecha imposible: no es cabecera
 assert.strictEqual(S.extraer([nota('<div>05/01</div><div>10:00 Revisión</div>', { cal: true })], new Date(2026, 11, 20, 9))[0].inicio, '2027-01-05T10:00:00');
@@ -51,8 +51,6 @@ fs.writeFileSync(path.join(dir, 'agenda-PC2.json'), JSON.stringify({ version: 1,
 fs.writeFileSync(path.join(dir, 'agenda-PC3.json'), '{ roto');
 const ag = S.leerAgenda(dir, hoy);
 assert.deepStrictEqual(ag.map(e => e.id), ['cal:b', 'cal:a']);
-const h = S.htmlAgenda(ag, hoy);
-assert.ok(h.includes('Lunes 19/10') && h.includes('Todo el día Cumple') && h.includes('10:00 Reunión'));
 
 // --- carpeta: la guardada manda; si no, se detecta la hermana de la app; si no, se crea
 const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'raiz-')), app = path.join(raiz, 'Post-It'); fs.mkdirSync(app);

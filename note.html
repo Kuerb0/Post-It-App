@@ -22,7 +22,6 @@ button.on{opacity:1;background:#0003}
 #ed .rep{margin:0 4px 0 0;user-select:none;cursor:pointer}#ed .rep svg{width:13px;height:13px;vertical-align:-2px;opacity:.65}
 #dts{display:none;flex:none;align-items:center;gap:2px;padding:2px 6px;background:#0002;font-size:13px}
 #dts button{width:auto;padding:0 8px;font-size:13px;opacity:.85}
-#ed .cal{font-size:13px;opacity:.75;user-select:none;border-left:3px solid #0004;padding-left:5px;margin:1px 0}
 .back{font-size:12px;opacity:.7;margin-left:6px;user-select:none}
 #tb{flex:none;display:flex;flex-wrap:wrap;align-items:center;background:#0001;padding:0 2px}
 #tb s{width:1px;height:16px;background:#0003;margin:0 3px}
@@ -108,7 +107,7 @@ button.on{opacity:1;background:#0003}
   <div><b>Ctrl+Shift+D</b> anadir varias fechas de golpe</div>
   <div><b>Ctrl+Shift+K</b> columnas: 2 / 3 / 4 / 5 / quitar</div>
   <div><b>Ctrl+Shift+G</b> translucida / opaca</div>
-  <div><b>Botón 📅</b> unir con el Calendario: sus eventos salen bajo cada fecha de la nota, y las líneas con hora que pongas bajo una fecha (<i>22/10</i> → <i>18:30 Dentista</i>) salen en él</div>
+  <div><b>Botón 📅</b> unir con el Calendario: sus eventos salen bajo cada fecha de la nota como tareas <i>☐ 📅 10:30 Reunión</i> (clic en la casilla para tacharlos), y las líneas con hora que pongas bajo una fecha (<i>22/10</i> → <i>18:30 Dentista</i>) salen en él</div>
   <div><b>Ctrl+Shift+P</b> posici&oacute;n: normal / encima / debajo</div>
   <div style="margin-top:8px;opacity:.8">Repetir una tarea: añade <b style="min-width:0">@diario @semanal @mensual @lunes…@domingo @cada3d</b> en su línea.</div>
   <div style="opacity:.6;margin-top:8px">(clic para cerrar)</div>
@@ -148,16 +147,17 @@ function resets(){
   if(ch)sv();
 }
 function load(n){
-  document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);calb.style.display=n.agenda?'none':'';
+  document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
   ed.innerHTML=n.html||'<div><br></div>';
-  ed.contentEditable=!n.agenda; // la nota Agenda la rellena el Calendario: solo lectura
-  document.getElementById('tb').style.display=document.getElementById('dts').style.display=n.agenda?'none':'';
+  hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
 
 // marcar/desmarcar casilla (a mano o con Ctrl+Enter) → calcula cuándo vuelve
 ed.onchange=e=>{
   const c=e.target;if(c.type!='checkbox')return;
+  const ev=c.closest('.cal'); // evento del Calendario: se recuerda por evento (no vive en el texto de la nota)
+  if(ev){hechos[c.checked?'add':'delete'](ev.dataset.k);api.hechoCal(id,ev.dataset.k,c.checked);return}
   c.toggleAttribute('checked',c.checked);clearBack(c);
   if(c.checked){
     const tag=/@(\S+)/.exec(c.parentElement.textContent),nx=tag&&next(tag[1]);
@@ -379,8 +379,9 @@ function setCols(v){
   cb.title=(cols?'Columnas: hasta '+cols+' (clic: '+(cols<5?cols+1:'quitar')+')':'Sin columnas (clic: 2)')+' - Ctrl+Shift+K';
 }
 cb.onclick=()=>{const v=!cols?2:cols<5?cols+1:0;setCols(v);api.cols(id,v)};
-// unida al Calendario: sus eventos se pintan (solo lectura) bajo cada fecha de la nota, y sus tareas bajo una fecha van al Calendario
-let cal=false,agenda=[];
+// unida al Calendario: sus eventos se pintan bajo cada fecha de la nota como tareas (📅 + casilla, texto no editable),
+// y las líneas con hora bajo una fecha van al Calendario. Lo tachado se guarda aparte (hechos), no en el texto.
+let cal=false,agenda=[],hechos=new Set();
 function paintCal(){
   ed.querySelectorAll('.cal').forEach(x=>x.remove());
   if(!cal)return;
@@ -388,15 +389,15 @@ function paintCal(){
   for(const [h,d] of headDates()){
     let at=h;
     for(const e of agenda.filter(e=>e.inicio.slice(0,10)==day(d))){
-      const x=document.createElement('div');x.className='cal';x.contentEditable=false;
-      x.innerHTML='📅 '+(e.todo_dia?'':esc(e.inicio.slice(11,16))+' ')+esc(e.titulo);
+      const x=document.createElement('div');x.className='cal';x.contentEditable=false;x.dataset.k=e.id;
+      x.innerHTML='<input type=checkbox'+(hechos.has(e.id)?' checked':'')+'>📅 '+(e.todo_dia?'':esc(e.inicio.slice(11,16))+' ')+esc(e.titulo);
       at.after(x);at=x;
     }
   }
 }
 async function setCal(v){
   cal=!!v;calb.classList.toggle('on',cal);
-  calb.title=cal?'Unida al Calendario: ves sus eventos bajo cada fecha y las líneas con hora bajo una fecha salen en él (clic: separar)':'Unir con el Calendario: ver sus eventos bajo cada fecha y mandarle las líneas con hora que haya bajo una fecha';
+  calb.title=cal?'Unida al Calendario: sus eventos salen bajo cada fecha (clic en la casilla: tacharlos) y las líneas con hora bajo una fecha salen en él (clic: separar)':'Unir con el Calendario: ver sus eventos bajo cada fecha y mandarle las líneas con hora que haya bajo una fecha';
   if(cal)agenda=await api.agenda();
   paintCal();
 }

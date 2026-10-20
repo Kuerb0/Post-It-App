@@ -5,10 +5,10 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=req
 const DATA=path.join(__dirname,'notes.json'); // vive en OneDrive → se sincroniza entre equipos
 const ICON=path.join(__dirname,'assets','icon.png');
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f48fb1','#ce93d8'];
-let notes=[],pos={},last='',POS,tray,CFG,cfg={},carpeta=null,ag=null,firma='',tExp;
+let notes=[],pos={},last='',POS,tray,CFG,cfg={},carpeta=null,firma='',tExp;
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
-const save=()=>{fs.writeFileSync(DATA,last=JSON.stringify(notes.filter(n=>!n.agenda),null,1));exportar()}; // la nota Agenda no se guarda: se rehace del Calendario
+const save=()=>{fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));exportar()};
 const find=id=>notes.find(n=>n.id==id);
 const win=e=>BrowserWindow.fromWebContents(e.sender);
 
@@ -74,12 +74,7 @@ function refrescarAgenda(){
   const f=S.firmaAgenda(carpeta)+'|'+S.iso(new Date());
   if(!f.split('|')[0]||f==firma)return;
   firma=f;
-  const ahora=new Date(),html=S.htmlAgenda(S.leerAgenda(carpeta,ahora),ahora);
   for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventosNotas()); // notas unidas: pintan los eventos bajo sus fechas
-  if(!ag){ag={id:crypto.randomUUID(),color:'#b3e5fc',agenda:true,html};notes.push(ag);open(ag);return}
-  ag.html=html;
-  if(!notes.includes(ag))notes.push(ag);
-  const w=wins.get(ag.id);if(w)w.webContents.send('set',ag);else open(ag);
 }
 const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),40):[]; // la semana pasada y el mes que viene
 function elegirCarpeta(){
@@ -96,7 +91,7 @@ function iniciarSync(){
 }
 
 ipcMain.handle('get',(e,id)=>find(id));
-ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n&&!n.agenda){n.html=html;save()}});
+ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n){n.html=html;save()}});
 ipcMain.on('color',(e,id,c)=>{ // c = #rrggbb elegido en el selector
   const n=find(id);if(!n||!/^#[0-9a-f]{6}$/i.test(c))return;
   n.color=c;save();win(e).setBackgroundColor(c);
@@ -113,13 +108,19 @@ ipcMain.handle('cal',(e,id)=>{ // unir con el Calendario: sus tareas bajo una fe
   const n=find(id);n.cal=n.cal?undefined:true;save();return !!n.cal;
 });
 ipcMain.handle('agenda',()=>eventosNotas());
+ipcMain.on('hechoCal',(e,id,k,v)=>{ // casilla de un evento del Calendario pintado en la nota; k = id del evento (uid@inicio)
+  const n=find(id);if(!n)return;
+  const s=new Set(n.calHechos),lim=S.iso(new Date(Date.now()-60*864e5));
+  v?s.add(k):s.delete(k);
+  const l=[...s].filter(x=>x.slice(-19,-9)>=lim); // los de hace más de 60 días ya no se pintan: se olvidan
+  n.calHechos=l.length?l:undefined;save();
+});
 ipcMain.on('cols',(e,id,v)=>{const n=find(id);if(n){n.cols=v||undefined;save()}}); // máx. de columnas (0 = sin columnas)
 ipcMain.on('new',add);
 ipcMain.on('close',e=>win(e).close());
 ipcMain.on('min',e=>{const w=win(e);w.setSkipTaskbar(false);w.minimize()});
 ipcMain.on('del',(e,id)=>{
   const n=find(id);if(!n)return;
-  if(n.agenda)return win(e).close();
   if(n.html.replace(/<[^>]*>/g,'').trim()&&dialog.showMessageBoxSync(win(e),
     {type:'question',buttons:['Eliminar','Cancelar'],defaultId:1,cancelId:1,message:'¿Eliminar esta nota?'}))return;
   notes=notes.filter(x=>x!=n);save();win(e).close();
@@ -149,7 +150,7 @@ app.whenReady().then(()=>{
   // OneDrive trajo cambios de otro equipo → recargar
   fs.watchFile(DATA,{interval:3000},()=>{
     let s,j;try{s=fs.readFileSync(DATA,'utf8');if(s==last)return;j=JSON.parse(s)}catch{return}
-    const had=new Set(notes.map(n=>n.id));last=s;notes=j;if(ag)notes.push(ag);exportar();
+    const had=new Set(notes.map(n=>n.id));last=s;notes=j;exportar();
     for(const [id,w] of wins)if(!find(id))w.close();
     for(const n of notes){
       const w=wins.get(n.id);

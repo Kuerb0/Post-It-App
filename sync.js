@@ -1,6 +1,6 @@
 // Enlace con el Calendario por una carpeta compartida (AgendaCompartida), sin servidor ni cuenta.
 //  · notas-<EQUIPO>.json  lo escribe Post-It: las líneas de las notas que llevan hora (se ven en el Calendario)
-//  · agenda-<EQUIPO>.json lo escribe el Calendario: sus próximos eventos (salen en la nota «Agenda»)
+//  · agenda-<EQUIPO>.json lo escribe el Calendario: sus próximos eventos (salen bajo cada fecha de las notas unidas)
 // Cada equipo escribe solo su fichero y todos leen todos: así OneDrive no crea copias en conflicto.
 // Sin dependencias de Electron: se prueba con node (tests/test_sync.js).
 const fs = require('fs'), path = require('path'), os = require('os');
@@ -43,12 +43,12 @@ const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0
 
 // ------------------------------------------------------------------ de las notas a actividades
 // Solo van al Calendario las líneas de una nota unida (botón 📅) que llevan hora y están debajo de una fecha (Jueves 22/10).
-// notas: [{id, html, cal?, agenda?}] · hoy: Date. Devuelve los items: {id, titulo, inicio, fin, hecho, nota}
+// notas: [{id, html, cal?}] · hoy: Date. Devuelve los items: {id, titulo, inicio, fin, hecho, nota}
 function extraer(notas, hoy) {
   hoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 12);
   const items = [];
   for (const n of notas) {
-    if (!n.cal || n.agenda) continue;                                             // la nota Agenda viene del Calendario: no vuelve a él
+    if (!n.cal) continue;
     let cabecera = null;
     for (const l of lineas(n.html)) {
       const solo = FECHA_SOLA.exec(norm(l.texto));
@@ -113,18 +113,4 @@ function firmaAgenda(carpeta) {
   try { return fs.readdirSync(carpeta).filter(f => f.startsWith('agenda-')).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
 }
 
-// ------------------------------------------------------------------ la nota «Agenda»
-const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-function htmlAgenda(eventos, ahora) {
-  const NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  let h = `<h3>Agenda del Calendario</h3><div style="opacity:.6">Se rellena sola. Lo que escribas aquí se borra.</div>`, dia = '';
-  if (!eventos.length) h += '<div><br></div><div>Sin eventos en los próximos días.</div>';
-  for (const e of eventos) {
-    const d = new Date(e.inicio), k = iso(d);
-    if (k !== dia) { dia = k; h += `<div><br></div><div><b>${NOMBRES[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}</b></div>`; }
-    h += `<div>${e.todo_dia ? 'Todo el día' : pad(d.getHours()) + ':' + pad(d.getMinutes())} ${esc(e.titulo)}</div>`;
-  }
-  return h;
-}
-
-module.exports = { lineas, extraer, carpetaCompartida, escribirNotas, leerAgenda, firmaAgenda, htmlAgenda, equipo, iso, NOMBRE_CARPETA };
+module.exports = { lineas, extraer, carpetaCompartida, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
