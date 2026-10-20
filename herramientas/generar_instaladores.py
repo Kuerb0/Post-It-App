@@ -26,6 +26,7 @@ SALIDA = os.path.join(RAIZ, "instaladores")
 # ruta relativa a la carpeta principal -> modo ("text" o "b64")
 ARCHIVOS = [
     ("main.js", "text"),
+    ("sync.js", "text"),
     ("note.html", "text"),
     ("preload.js", "text"),
     ("package.json", "text"),
