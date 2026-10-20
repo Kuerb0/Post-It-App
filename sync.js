@@ -82,6 +82,20 @@ function carpetaCompartida({ guardada, raiz, entorno = process.env, hogar = os.h
   try { fs.mkdirSync(nueva, { recursive: true }); return { ruta: nueva, origen: 'creada' }; } catch { return { ruta: null, origen: 'ninguna' }; }
 }
 
+// ------------------------------------------------------------------ dónde viven las notas
+// Junto a la carpeta compartida (OneDrive\Post-It\notes.json): lo que sincroniza OneDrive es lo que ven todos los equipos.
+// La app instalada vive en local (%LOCALAPPDATA%), así que sus notas NO pueden quedarse junto a ella. Sin carpeta compartida: junto a la app.
+function rutaNotas({ carpeta, local }) {
+  return carpeta ? path.join(path.dirname(carpeta), 'Post-It', 'notes.json') : local;
+}
+// Primera vez en esa ruta: se llevan las notas que tenía la app. Si ya hay unas allí (de otro equipo), mandan esas y las locales no se tocan.
+function migrarNotas(destino, local) {
+  if (destino === local || fs.existsSync(destino) || !fs.existsSync(local)) return false;
+  fs.mkdirSync(path.dirname(destino), { recursive: true });
+  fs.copyFileSync(local, destino);
+  return true;
+}
+
 // ------------------------------------------------------------------ ficheros
 function escribirAtomico(ruta, objeto) {
   const nuevo = JSON.stringify(objeto, null, 1);
@@ -113,4 +127,4 @@ function firmaAgenda(carpeta) {
   try { return fs.readdirSync(carpeta).filter(f => f.startsWith('agenda-')).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
 }
 
-module.exports = { lineas, extraer, carpetaCompartida, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
+module.exports = { lineas, extraer, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };

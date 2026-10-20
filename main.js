@@ -2,13 +2,14 @@ const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog}=require('electron
 const S=require('./sync');
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=require('child_process');
 
-const DATA=path.join(__dirname,'notes.json'); // vive en OneDrive → se sincroniza entre equipos
+const LOCAL=path.join(__dirname,'notes.json');
+let DATA=LOCAL; // la ruta real se fija al arrancar (ubicar): en OneDrive, para que las notas se sincronicen entre equipos
 const ICON=path.join(__dirname,'assets','icon.png');
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f48fb1','#ce93d8'];
 let notes=[],pos={},last='',POS,tray,CFG,cfg={},carpeta=null,firma='',tExp;
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
-const save=()=>{fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));exportar()};
+const save=()=>{fs.mkdirSync(path.dirname(DATA),{recursive:true});fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));exportar()};
 const find=id=>notes.find(n=>n.id==id);
 const win=e=>BrowserWindow.fromWebContents(e.sender);
 
@@ -82,9 +83,14 @@ function elegirCarpeta(){
   if(!r)return;
   cfg.carpeta=r[0];guardarCfg();carpeta=r[0];firma='';exportar();refrescarAgenda();
 }
-function iniciarSync(){
+function ubicar(){ // dónde van las notas y qué carpeta se comparte con el Calendario; se fija la primera vez y no cambia solo
   CFG=path.join(app.getPath('userData'),'sync.json');cfg=read(CFG,{});
-  carpeta=S.carpetaCompartida({guardada:cfg.carpeta,raiz:__dirname}).ruta;
+  const c=S.carpetaCompartida({guardada:cfg.carpeta,raiz:__dirname});
+  carpeta=c.ruta;
+  if(!cfg.notas){cfg.notas=S.rutaNotas({carpeta:c.origen=='creada'?null:carpeta,local:LOCAL});guardarCfg()} // «creada» = no hay OneDrive: junto a la app
+  DATA=cfg.notas;S.migrarNotas(DATA,LOCAL);
+}
+function iniciarSync(){
   exportar();refrescarAgenda();
   setInterval(refrescarAgenda,15000);
   setInterval(exportar,3600000); // «hoy» y «mañana» cambian de dia aunque la nota no se toque
@@ -130,13 +136,17 @@ app.whenReady().then(()=>{
   Menu.setApplicationMenu(null); // sin menú por defecto: sus atajos (Ctrl+W, Ctrl+R…) no deben pisar los de la nota
   POS=path.join(app.getPath('userData'),'pos.json');
   pos=read(POS,{});
-  notes=read(DATA,[]);
-  if(!notes.length)notes.push({id:crypto.randomUUID(),color:COLORS[0],html:
+  ubicar();
+  let raw='';try{raw=fs.readFileSync(DATA,'utf8')}catch{}
+  try{notes=JSON.parse(raw)}catch{notes=[];if(raw.trim())fs.copyFileSync(DATA,DATA+'.ilegible')} // existe pero no se lee: se guarda aparte antes de que nada lo pise
+  const nueva=!notes.length;
+  if(nueva)notes.push({id:crypto.randomUUID(),color:COLORS[0],html:
     '<div>Bienvenido 👋 Escribe <b>-</b> + espacio para crear una tarea. Pulsa <b>F1</b> para ver los atajos.</div>'+
     '<div>Repetir: @diario @semanal @mensual @lunes @cada3d</div>'+
     '<div><input type="checkbox"> regar plantas @diario</div>'+
     '<div><input type="checkbox"> informe @lunes</div>'});
-  save();showAll();iniciarSync();
+  if(!nueva)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
+  showAll();iniciarSync();
 
   // arranque con Windows
   app.setLoginItemSettings({openAtLogin:true,path:process.execPath,args:[__dirname]});

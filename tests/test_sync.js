@@ -60,4 +60,16 @@ c = S.carpetaCompartida({ raiz: app, entorno: {}, hogar: raiz });
 assert.strictEqual(c.origen, 'detectada');
 c = S.carpetaCompartida({ guardada: dir, raiz: app, entorno: {}, hogar: raiz });
 assert.deepStrictEqual([c.origen, c.ruta], ['guardada', dir]);
+// --- notas: viven junto a la carpeta compartida (OneDrive\Post-It\notes.json) para sincronizarse; sin carpeta, junto a la app
+const od = path.join(raiz, 'OneDrive'), local = path.join(raiz, 'Programs', 'PostIt', 'app', 'notes.json');
+assert.strictEqual(S.rutaNotas({ carpeta: path.join(od, 'AgendaCompartida'), local }), path.join(od, 'Post-It', 'notes.json'));
+assert.strictEqual(S.rutaNotas({ carpeta: null, local }), local);
+fs.mkdirSync(path.dirname(local), { recursive: true }); fs.writeFileSync(local, '[{"id":"a"}]');
+const dest = path.join(od, 'Post-It', 'notes.json');
+assert.strictEqual(S.migrarNotas(dest, local), true);                          // primera vez: se llevan las de la app
+assert.strictEqual(fs.readFileSync(dest, 'utf8'), '[{"id":"a"}]');
+fs.writeFileSync(dest, '[{"id":"otro-equipo"}]');
+assert.strictEqual(S.migrarNotas(dest, local), false);                         // ya había unas (de otro equipo): mandan esas
+assert.strictEqual(fs.readFileSync(dest, 'utf8'), '[{"id":"otro-equipo"}]');
+assert.strictEqual(S.migrarNotas(local, local), false);                        // sin carpeta compartida: no hay nada que mover
 console.log('TEST OK');
