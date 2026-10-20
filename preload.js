@@ -9,5 +9,9 @@ contextBridge.exposeInMainWorld('api',{
   add:()=>r.send('new'),
   del:id=>r.send('del',id),
   close:()=>r.send('close'),
+  min:()=>r.send('min'),
+  cal:id=>r.invoke('cal',id),
+  agenda:()=>r.invoke('agenda'),
   onSet:f=>r.on('set',(_,n)=>f(n)),
+  onAgenda:f=>r.on('agenda',(_,ev)=>f(ev)),
 });

@@ -19,7 +19,8 @@ const entidades = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quo
 function lineas(html) {
   html = String(html || '')
     .replace(/<span[^>]*class=["']?(?:back|rep)[^>]*>[\s\S]*?<\/span>/gi, '')    // «vuelve…» y el icono de periódica
-    .replace(/<svg[\s\S]*?<\/svg>/gi, '');
+    .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<div[^>]*class=["']?cal\b[^>]*>[\s\S]*?<\/div>/gi, '');              // eventos del Calendario pintados en la nota: no vuelven a él
   return html.split(/<\/(?:div|li|h3|p)>|<br\s*\/?>/i).map(seg => {
     const caja = /<input[^>]*type=["']?checkbox["']?[^>]*>/i.exec(seg);
     const texto = seg.replace(/<[^>]+>/g, '').replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, m => entidades[m]).replace(/\s+/g, ' ').trim();
@@ -71,7 +72,12 @@ function extraer(notas, hoy, vistos = {}) {
       let t = l.texto, h = HORA.exec(t), hi, mi, hf = null, mf = null;
       if (h) { hi = +h[1]; mi = +h[2]; if (h[3] != null) { hf = +h[3]; mf = +h[4]; } t = t.replace(h[0], ' '); }
       else if ((h = HORA_SUELTA.exec(t))) { hi = +(h[1] ?? h[2]); mi = 0; t = t.replace(h[0], ' '); }
-      else continue;                                                              // sin hora no es una actividad del calendario
+      else {                                                                      // sin hora: solo en notas unidas y bajo una fecha → tarea de todo el día
+        const titulo = t.replace(/@\S+/g, '').replace(/\s{2,}/g, ' ').trim();
+        if (n.cal && cabecera && titulo) items.push({ id: 'postit:' + n.id + ':' + hash(iso(cabecera) + norm(l.texto)), titulo,
+          inicio: isoHora(cabecera, 12, 0), fin: null, todo_dia: true, hecho: l.hecha, nota: n.id });
+        continue;
+      }
       let fecha = null;
       const f = FECHA_EN_LINEA.exec(t);
       if (f) { fecha = resolverFecha(+f[1], +f[2], f[3], hoy); if (fecha) t = t.replace(f[0], ' '); }

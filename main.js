@@ -37,7 +37,7 @@ app.on('second-instance',()=>showAll());
 app.on('window-all-closed',()=>{}); // la app sigue viva en la bandeja
 
 function open(n){
-  if(wins.has(n.id))return wins.get(n.id).show();
+  if(wins.has(n.id)){const w=wins.get(n.id);if(w.isMinimized())w.restore();return w.show()}
   const o=100+wins.size*30;
   const w=new BrowserWindow({x:o,y:o,width:340,height:340,minWidth:200,minHeight:150,...pos[n.id],
     icon:ICON,frame:false,skipTaskbar:true,show:false,backgroundColor:n.color,
@@ -47,6 +47,7 @@ function open(n){
   w.on('blur',()=>{if(find(n.id)?.z=='bottom'&&!w.isDestroyed())toBottom(w)}); // al soltar el foco, vuelve al fondo
   let t;const sp=()=>{pos[n.id]=w.getBounds();clearTimeout(t);t=setTimeout(()=>fs.writeFileSync(POS,JSON.stringify(pos)),300)};
   w.on('moved',sp);w.on('resized',sp);
+  w.on('restore',()=>w.setSkipTaskbar(true)); // minimizada sale en la barra de tareas; al volver, deja de salir
   w.on('closed',()=>wins.delete(n.id));
   wins.set(n.id,w);
 }
@@ -75,11 +76,13 @@ function refrescarAgenda(){
   if(!f.split('|')[0]||f==firma)return;
   firma=f;
   const ahora=new Date(),html=S.htmlAgenda(S.leerAgenda(carpeta,ahora),ahora);
+  for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventosNotas()); // notas unidas: pintan los eventos bajo sus fechas
   if(!ag){ag={id:crypto.randomUUID(),color:'#b3e5fc',agenda:true,html};notes.push(ag);open(ag);return}
   ag.html=html;
   if(!notes.includes(ag))notes.push(ag);
   const w=wins.get(ag.id);if(w)w.webContents.send('set',ag);else open(ag);
 }
+const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),40):[]; // la semana pasada y el mes que viene
 function elegirCarpeta(){
   const r=dialog.showOpenDialogSync({title:'Carpeta compartida con el Calendario',defaultPath:carpeta||undefined,properties:['openDirectory','createDirectory']});
   if(!r)return;
@@ -107,9 +110,14 @@ ipcMain.handle('glass',(e,id)=>{
   const n=find(id);n.glass=n.glass?undefined:true;
   save();apply(win(e),n,false);return !!n.glass;
 });
+ipcMain.handle('cal',(e,id)=>{ // unir con el Calendario: sus tareas bajo una fecha van al Calendario y ven sus eventos
+  const n=find(id);n.cal=n.cal?undefined:true;save();return !!n.cal;
+});
+ipcMain.handle('agenda',()=>eventosNotas());
 ipcMain.on('cols',(e,id,v)=>{const n=find(id);if(n){n.cols=v||undefined;save()}}); // máx. de columnas (0 = sin columnas)
 ipcMain.on('new',add);
 ipcMain.on('close',e=>win(e).close());
+ipcMain.on('min',e=>{const w=win(e);w.setSkipTaskbar(false);w.minimize()});
 ipcMain.on('del',(e,id)=>{
   const n=find(id);if(!n)return;
   if(n.agenda)return win(e).close();
@@ -142,7 +150,7 @@ app.whenReady().then(()=>{
   // OneDrive trajo cambios de otro equipo → recargar
   fs.watchFile(DATA,{interval:3000},()=>{
     let s,j;try{s=fs.readFileSync(DATA,'utf8');if(s==last)return;j=JSON.parse(s)}catch{return}
-    const had=new Set(notes.map(n=>n.id));last=s;notes=j;if(ag)notes.push(ag);
+    const had=new Set(notes.map(n=>n.id));last=s;notes=j;if(ag)notes.push(ag);exportar();
     for(const [id,w] of wins)if(!find(id))w.close();
     for(const n of notes){
       const w=wins.get(n.id);

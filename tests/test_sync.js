@@ -42,6 +42,15 @@ assert.notStrictEqual(S.extraer([nota('<div>18:00 A</div>')], hoy).items[0].id, 
 // --- la nota Agenda no vuelve al Calendario
 assert.strictEqual(S.extraer([nota('<div>18:00 Dentista</div>', { agenda: true })], hoy).items.length, 0);
 
+// --- nota unida: las tareas sin hora bajo una fecha salen como todo el día; los eventos pintados del Calendario no vuelven
+const unida = '<div class="datehead"><span>Miércoles </span><b>21-10</b></div><div><input type="checkbox" checked>Cama @diario</div>' +
+  '<div class="cal" contenteditable="false">📅 10:00 Reunión</div><div>18:00 Dentista</div><div><br></div>';
+r = S.extraer([nota(unida, { cal: true })], hoy);
+assert.deepStrictEqual(r.items.map(i => [i.titulo, i.inicio, !!i.todo_dia, i.hecho]),
+  [['Cama', '2026-10-21T12:00:00', true, true], ['Dentista', '2026-10-21T18:00:00', false, false]]);
+assert.strictEqual(S.extraer([nota(unida)], hoy).items.length, 1);   // sin unir: solo lo que lleva hora
+assert.strictEqual(S.extraer([nota('<div>Cama</div>', { cal: true })], hoy).items.length, 0);   // sin fecha encima: nada
+
 // --- año siguiente para una fecha que ya pasó hace mucho
 assert.strictEqual(S.extraer([nota('<div>05/01 10:00 Revisión</div>')], new Date(2026, 11, 20, 9)).items[0].inicio, '2027-01-05T10:00:00');
 // --- fecha imposible: se ignora la fecha y se usa hoy
