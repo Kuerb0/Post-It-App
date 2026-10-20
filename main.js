@@ -58,15 +58,14 @@ function add(){
 }
 
 // ---- sincronizacion con el Calendario por una carpeta compartida (ver sync.js)
-// notas-<equipo>.json: las lineas con hora de estas notas · agenda-<equipo>.json: lo que escribe el Calendario
+// notas-<equipo>.json: las lineas con hora bajo una fecha de las notas unidas · agenda-<equipo>.json: lo que escribe el Calendario
 const guardarCfg=()=>fs.writeFileSync(CFG,JSON.stringify(cfg));
 function exportar(){ // con un respiro: guardar se llama a cada tecla
   clearTimeout(tExp);
   tExp=setTimeout(()=>{
     if(!carpeta)return;
     try{
-      const r=S.extraer(notes,new Date(),cfg.vistos||{});
-      cfg.vistos=r.vistos;guardarCfg();S.escribirNotas(carpeta,r.items);
+      S.escribirNotas(carpeta,S.extraer(notes,new Date()));
     }catch(err){console.error('sync',err)}
   },1500);
 }

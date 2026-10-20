@@ -108,7 +108,7 @@ button.on{opacity:1;background:#0003}
   <div><b>Ctrl+Shift+D</b> anadir varias fechas de golpe</div>
   <div><b>Ctrl+Shift+K</b> columnas: 2 / 3 / 4 / 5 / quitar</div>
   <div><b>Ctrl+Shift+G</b> translucida / opaca</div>
-  <div><b>Botón 📅</b> unir con el Calendario: sus eventos salen bajo cada fecha de la nota y las tareas que pongas bajo una fecha salen en él (sin hora, como tarea del día)</div>
+  <div><b>Botón 📅</b> unir con el Calendario: sus eventos salen bajo cada fecha de la nota, y las líneas con hora que pongas bajo una fecha (<i>22/10</i> → <i>18:30 Dentista</i>) salen en él</div>
   <div><b>Ctrl+Shift+P</b> posici&oacute;n: normal / encima / debajo</div>
   <div style="margin-top:8px;opacity:.8">Repetir una tarea: añade <b style="min-width:0">@diario @semanal @mensual @lunes…@domingo @cada3d</b> en su línea.</div>
   <div style="opacity:.6;margin-top:8px">(clic para cerrar)</div>
@@ -396,7 +396,7 @@ function paintCal(){
 }
 async function setCal(v){
   cal=!!v;calb.classList.toggle('on',cal);
-  calb.title=cal?'Unida al Calendario: ves sus eventos bajo cada fecha y tus tareas salen en él (clic: separar)':'Unir con el Calendario: ver sus eventos bajo cada fecha y mandarle tus tareas';
+  calb.title=cal?'Unida al Calendario: ves sus eventos bajo cada fecha y las líneas con hora bajo una fecha salen en él (clic: separar)':'Unir con el Calendario: ver sus eventos bajo cada fecha y mandarle las líneas con hora que haya bajo una fecha';
   if(cal)agenda=await api.agenda();
   paintCal();
 }
