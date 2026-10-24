@@ -1,6 +1,6 @@
 const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog}=require('electron');
 const S=require('./sync');
-const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn}=require('child_process');
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn,execFileSync}=require('child_process');
 
 const LOCAL=path.join(__dirname,'notes.json');
 let DATA=LOCAL; // la ruta real se fija al arrancar (ubicar): en OneDrive, para que las notas se sincronicen entre equipos
@@ -33,20 +33,46 @@ function apply(w,n,now=true){ // now=false: la nota está en uso, baja al perder
   if(n.z=='bottom'&&now)toBottom(w);
 }
 
+// Una ventana sin botón en la barra de tareas no pertenece a ningún escritorio virtual y sale en todos.
+// Cada nota se queda en el escritorio donde está (pos[id].desk) y se oculta en los demás; «Mostrar todas» las trae al actual.
+const VD='HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops';
+let ahora='',todos=''; // ids en hexadecimal: el escritorio actual y todos los que hay juntos
+const hex=v=>{try{return execFileSync('reg',['query',VD,'/v',v],{encoding:'utf8',windowsHide:true}).match(/REG_BINARY\s+([0-9a-f]+)/i)[1].toLowerCase()}catch{return ''}};
+const gp=()=>fs.writeFileSync(POS,JSON.stringify(pos));
+function aqui(id){ // ¿va esta nota en el escritorio actual? Sin escritorio (o ya no existe) se queda en el actual
+  const p=pos[id]||(pos[id]={});
+  if(ahora&&(!p.desk||!todos.includes(p.desk))){p.desk=ahora;gp()}
+  return !ahora||p.desk==ahora;
+}
+const colocar=(id,w=wins.get(id))=>{if(w&&!w.isDestroyed())aqui(id)?w.isVisible()||w.showInactive():w.hide()};
+const PSD=`$k='HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VirtualDesktops';$p=''
+function Lee($n){$b=[Microsoft.Win32.Registry]::GetValue($k,$n,$null);if($b){-join($b|%{$_.ToString('x2')})}}
+while(Get-Process -Id ${process.pid} -EA 0){$c=Lee CurrentVirtualDesktop;$i=Lee VirtualDesktopIDs;if(!$c -and $i){$c=$i.Substring(0,32)} # Windows no escribe el actual hasta el primer cambio
+$l="$c $i";if($l -ne $p){$p=$l;[Console]::Out.WriteLine($l);[Console]::Out.Flush()};Start-Sleep -Milliseconds 300}`;
+function vigilarEscritorio(){ // un PowerShell avisa cada vez que cambia el escritorio; se cierra solo si muere la app
+  let b='';
+  spawn('powershell',['-NoProfile','-EncodedCommand',Buffer.from(PSD,'utf16le').toString('base64')],{stdio:['ignore','pipe','ignore'],windowsHide:true})
+    .stdout.on('data',d=>{
+      const l=(b+=d).split(/\r?\n/);b=l.pop();const u=l.pop();
+      if(u){[ahora,todos='']=u.trim().split(' ');wins.forEach((w,id)=>colocar(id,w))}
+    });
+}
+
 if(!app.requestSingleInstanceLock())app.quit();
 app.on('second-instance',()=>showAll());
 app.on('window-all-closed',()=>{}); // la app sigue viva en la bandeja
 
 function open(n){
-  if(wins.has(n.id)){const w=wins.get(n.id);if(w.isMinimized())w.restore();return w.show()}
+  if(wins.has(n.id)){const w=wins.get(n.id);if(ahora){(pos[n.id]||(pos[n.id]={})).desk=ahora;gp()} // «Mostrar todas»: la trae a este escritorio
+    if(w.isMinimized())w.restore();return w.show()}
   const o=100+wins.size*30;
   const w=new BrowserWindow({x:o,y:o,width:340,height:340,minWidth:200,minHeight:150,...pos[n.id],
     icon:ICON,frame:false,skipTaskbar:true,show:false,backgroundColor:n.color,
     webPreferences:{preload:path.join(__dirname,'preload.js')}});
   w.loadFile('note.html',{query:{id:n.id}});
-  w.once('ready-to-show',()=>{w.show();apply(w,n)});
+  w.once('ready-to-show',()=>{if(aqui(n.id))w.show();apply(w,n)});
   w.on('blur',()=>{if(find(n.id)?.z=='bottom'&&!w.isDestroyed())toBottom(w)}); // al soltar el foco, vuelve al fondo
-  let t;const sp=()=>{pos[n.id]=w.getBounds();clearTimeout(t);t=setTimeout(()=>fs.writeFileSync(POS,JSON.stringify(pos)),300)};
+  let t;const sp=()=>{pos[n.id]=Object.assign(pos[n.id]||{},w.getBounds());clearTimeout(t);t=setTimeout(gp,300)};
   w.on('moved',sp);w.on('resized',sp);
   w.on('restore',()=>w.setSkipTaskbar(true)); // minimizada sale en la barra de tareas; al volver, deja de salir
   w.on('closed',()=>wins.delete(n.id));
@@ -137,6 +163,7 @@ app.whenReady().then(()=>{
   POS=path.join(app.getPath('userData'),'pos.json');
   pos=read(POS,{});
   ubicar();
+  todos=hex('VirtualDesktopIDs');ahora=hex('CurrentVirtualDesktop')||todos.slice(0,32);
   let raw='';try{raw=fs.readFileSync(DATA,'utf8')}catch{}
   try{notes=JSON.parse(raw)}catch{notes=[];if(raw.trim())fs.copyFileSync(DATA,DATA+'.ilegible')} // existe pero no se lee: se guarda aparte antes de que nada lo pise
   const nueva=!notes.length;
@@ -146,7 +173,7 @@ app.whenReady().then(()=>{
     '<div><input type="checkbox"> regar plantas @diario</div>'+
     '<div><input type="checkbox"> informe @lunes</div>'});
   if(!nueva)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
-  showAll();iniciarSync();
+  showAll();iniciarSync();vigilarEscritorio();
 
   // arranque con Windows
   app.setLoginItemSettings({openAtLogin:true,path:process.execPath,args:[__dirname]});
