@@ -9,7 +9,7 @@ Escribe en instaladores/:
     Post-It <version> - Instalador.bat
     Post-It <version> - Instalador.exe    (el mismo instalador, con el icono de la app y sin consola)
 
-Lleva dentro main.js, note.html, preload.js, package.json y assets/. Electron (el motor de la app) no va dentro: el asistente lo
+Lleva dentro main.js, sync.js, note.html, lanzador.html, preload.js, package.json y assets/. Electron (el motor de la app) no va dentro: el asistente lo
 descarga de la publicacion oficial y comprueba su SHA-256. Nunca empaqueta notes.json: tus notas se quedan donde estan.
 El actualizador (instalador/actualizar.bat) sigue usando git.
 """
@@ -28,6 +28,7 @@ ARCHIVOS = [
     ("main.js", "text"),
     ("sync.js", "text"),
     ("note.html", "text"),
+    ("lanzador.html", "text"),
     ("preload.js", "text"),
     ("package.json", "text"),
     ("assets/icon.ico", "b64"),
@@ -43,7 +44,7 @@ ASISTENTE = {
     "SIN_ARRANQUE": "1",                                    # la propia app se registra para arrancar con Windows
     "COMPRUEBA": "main.js", "LANZADOR": ".", "ICONO": r"assets\icon.ico",
     "DATOS": "notes.json",
-    "PROGRAMA": ["main.js", "note.html", "preload.js", "package.json", "assets"],
+    "PROGRAMA": ["main.js", "sync.js", "note.html", "lanzador.html", "preload.js", "package.json", "assets"],
     "VERSION_FILE": "package.json", "VERSION_RE": r'"version"\s*:\s*"([^"]+)"',
     "PORTAL_PREFIJO": "Post-It", "ICONO_PNG": "assets/icon.png",
 }

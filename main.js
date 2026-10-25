@@ -1,4 +1,4 @@
-const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog}=require('electron');
+const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog,screen}=require('electron');
 const S=require('./sync');
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn,execFileSync}=require('child_process');
 
@@ -75,12 +75,15 @@ function open(n){
   let t;const sp=()=>{pos[n.id]=Object.assign(pos[n.id]||{},w.getBounds());clearTimeout(t);t=setTimeout(gp,300)};
   w.on('moved',sp);w.on('resized',sp);
   w.on('restore',()=>w.setSkipTaskbar(true)); // minimizada sale en la barra de tareas; al volver, deja de salir
-  w.on('closed',()=>wins.delete(n.id));
+  w.on('closed',()=>{wins.delete(n.id);pintarLanz()});
   wins.set(n.id,w);
 }
-const showAll=()=>notes.forEach(open);
-function add(){
-  const n={id:crypto.randomUUID(),color:COLORS[Math.random()*COLORS.length|0],html:''};
+// La principal (n.main, o la primera) siempre se abre al iniciar; las demás solo si no están dormidas (n.dorm)
+const principal=()=>notes.find(n=>n.main)||notes[0];
+const inicia=n=>!n.dorm||n===principal();
+const showAll=()=>notes.filter(n=>wins.has(n.id)||inicia(n)).forEach(open); // las dormidas se despiertan desde el menú de la bandeja
+function add(){ // las nuevas nacen dormidas: abiertas ahora, pero no al próximo inicio
+  const n={id:crypto.randomUUID(),color:COLORS[Math.random()*COLORS.length|0],html:'',dorm:true};
   notes.push(n);save();open(n);
 }
 
@@ -104,6 +107,36 @@ function refrescarAgenda(){
   for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventosNotas()); // notas unidas: pintan los eventos bajo sus fechas
 }
 const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),40):[]; // la semana pasada y el mes que viene
+// ---- lanzador (clic en el icono de la bandeja): miniaturas de las notas, abrir/cerrar, cuáles arrancan y cuál es la principal (lanzador.html)
+let lw,lwCerrado=0;
+const cl=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));
+const pintarLanz=()=>{if(lw&&!lw.isDestroyed())lw.webContents.send('lanz',
+  [...notes].sort((a,b)=>(b===principal())-(a===principal())).map(n=>({id:n.id,color:n.color,html:n.html,open:wins.has(n.id),start:inicia(n),main:n===principal()})))};
+function lanzador(){
+  if(Date.now()-lwCerrado<300)return; // el clic en la bandeja le quita el foco y lo cierra: no reabrirlo al instante
+  if(lw)return lw.focus();
+  const p=screen.getCursorScreenPoint(),a=screen.getDisplayNearestPoint(p).workArea,W=470,H=330;
+  lw=new BrowserWindow({width:W,height:H,x:cl(p.x-W/2,a.x,a.x+a.width-W),y:cl(p.y-H-10,a.y,a.y+a.height-H),
+    frame:false,skipTaskbar:true,alwaysOnTop:true,resizable:false,show:false,backgroundColor:'#262626',icon:ICON,
+    webPreferences:{preload:path.join(__dirname,'preload.js')}});
+  lw.loadFile('lanzador.html');
+  lw.once('ready-to-show',()=>{lw.show();pintarLanz()});
+  lw.on('blur',()=>lw.close());
+  lw.on('closed',()=>{lw=null;lwCerrado=Date.now()});
+}
+ipcMain.on('lanz',(e,a,id)=>{
+  const n=find(id);
+  if(a=='menu')return lanzador(); // desde el botón / Ctrl+L de una nota
+  if(a=='nueva')add();
+  else if(a=='abrir'&&n){open(n);wins.get(id)?.focus()}
+  else if(a=='cerrar')wins.get(id)?.close();
+  else if(a=='ini'&&n&&n!==principal()){n.dorm=n.dorm?undefined:true;save()}
+  else if(a=='main'&&n){notes.forEach(x=>x.main=undefined);n.main=true;n.dorm=undefined;save()}
+  if(a=='nueva'||a=='abrir'||a=='esc')lw?.close();else pintarLanz();
+});
+const menuBandeja=()=>tray.popUpContextMenu(Menu.buildFromTemplate([
+  {label:'Nueva nota',click:add},{label:'Traer las abiertas a este escritorio',click:showAll},
+  {label:'Carpeta compartida con el Calendario…',click:elegirCarpeta},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
 function elegirCarpeta(){
   const r=dialog.showOpenDialogSync({title:'Carpeta compartida con el Calendario',defaultPath:carpeta||undefined,properties:['openDirectory','createDirectory']});
   if(!r)return;
@@ -180,9 +213,7 @@ app.whenReady().then(()=>{
 
   tray=new Tray(nativeImage.createFromPath(ICON).resize({width:16,height:16}));
   tray.setToolTip('Post-its');
-  tray.setContextMenu(Menu.buildFromTemplate([
-    {label:'Nueva nota',click:add},{label:'Mostrar todas',click:showAll},{label:'Carpeta compartida con el Calendario…',click:elegirCarpeta},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
-  tray.on('click',showAll);
+  tray.on('click',lanzador);tray.on('right-click',menuBandeja);
 
   // OneDrive trajo cambios de otro equipo → recargar
   fs.watchFile(DATA,{interval:3000},()=>{
@@ -191,7 +222,7 @@ app.whenReady().then(()=>{
     for(const [id,w] of wins)if(!find(id))w.close();
     for(const n of notes){
       const w=wins.get(n.id);
-      if(!had.has(n.id))open(n);
+      if(!had.has(n.id)){if(inicia(n))open(n)}
       else if(w&&!w.isFocused()){w.setBackgroundColor(n.color);apply(w,n);w.webContents.send('set',n)}
     }
   });

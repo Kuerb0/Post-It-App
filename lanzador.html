@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><title>Post-its</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;user-select:none}
+body{font:13px 'Segoe UI',sans-serif;color:#eee;background:#262626;display:flex;flex-direction:column;border:1px solid #555;box-sizing:border-box}
+#g{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:8px;padding:10px;min-height:0}
+#l{flex:1;overflow:auto;padding:6px 10px;display:none}
+.c{position:relative;border-radius:4px;overflow:hidden;color:#222;cursor:pointer;box-shadow:0 1px 3px #0008;min-height:0}
+.c.off{opacity:.55}.c.on{outline:2px solid #fff;outline-offset:-2px}
+.m{position:absolute;inset:6px;font-size:8px;line-height:1.25;overflow:hidden;word-break:break-word;pointer-events:none;-webkit-mask-image:linear-gradient(#000 70%,transparent)}
+.m input{width:7px;height:7px;margin:0 2px 0 0}.m div:has(>input:checked){text-decoration:line-through;opacity:.55}
+.m h3{font-size:10px;margin:0}.m ul,.m ol{margin:0;padding-left:12px}
+.t{position:absolute;top:2px;right:2px;display:flex;gap:1px}.t button:not(.a){opacity:0}.c:hover .t button,.r .t button{opacity:1} /* los activos (★ ⏻) se ven siempre; el resto al pasar el ratón */
+.t button,.r button{border:0;border-radius:3px;background:#0003;color:inherit;width:20px;height:18px;padding:0;cursor:pointer;font-size:11px}
+.t button:hover,.r button:hover{background:#0006}.t button.a,.r button.a{background:#222;color:#ffd83b}
+.v{border:2px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:24px;cursor:pointer}
+.v:hover{border-color:#aaa;color:#ccc}
+.r{display:flex;align-items:center;gap:8px;padding:4px 6px;border-left:10px solid;border-radius:3px;margin:3px 0;background:#333;cursor:pointer}
+.r:hover{background:#3d3d3d}.r.off{opacity:.6}.r span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .t{position:static}.r button:not(.a){color:#eee}
+footer{flex:none;display:flex;gap:8px;padding:0 10px 10px}
+footer button{border:0;border-radius:3px;background:#3a3a3a;color:#eee;padding:5px 10px;cursor:pointer;font:inherit}
+footer button:hover{background:#4a4a4a}footer i{flex:1}
+</style>
+<div id=g></div><div id=l></div>
+<footer><button data-a=nueva>＋ Nueva</button><i></i><button id=mas data-a=mas style="display:none"></button></footer>
+<script>
+let L=[],lista=false;
+const titulo=n=>{const t=n.html.replace(/<\/(div|p|li|h\d)>|<br\s*\/?>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').split('\n').map(s=>s.trim()).find(Boolean)||'(vacía)';return t.length>40?t.slice(0,39)+'…':t};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ★ principal (siempre arranca) · ⏻ arranca con Windows (si no, la nota queda dormida) · ✕ cerrar (dormir ahora)
+const btn=n=>`<span class=t><button data-a=main class="${n.main?'a':''}" title="Principal">★</button><button data-a=ini class="${n.start?'a':''}" title="${n.main?'La principal siempre arranca':'Abrir al iniciar'}">⏻</button>${n.open?'<button data-a=cerrar title="Cerrar (dormir)">✕</button>':''}</span>`;
+function pintar(){
+  const g=document.getElementById('g'),l=document.getElementById('l'),mas=document.getElementById('mas'),res=L.slice(8);
+  g.innerHTML=L.slice(0,8).map(n=>`<div class="c ${n.open?'on':'off'}" data-id="${n.id}" style="background:${n.color}"><div class=m>${n.html}</div>${btn(n)}</div>`).join('')
+    +(L.length<8?'<div class=v data-a=nueva>＋</div>':'');
+  l.innerHTML=res.map(n=>`<div class="r ${n.open?'':'off'}" data-id="${n.id}" style="border-color:${n.color}"><span>${esc(titulo(n))}</span>${btn(n)}</div>`).join('');
+  if(!res.length)lista=false;
+  g.style.display=lista?'none':'grid';l.style.display=lista?'block':'none';
+  mas.style.display=res.length?'':'none';mas.textContent=lista?'‹ Volver':`Más (${res.length}) ›`;
+}
+document.onclick=e=>{
+  const b=e.target.closest('[data-a]'),c=e.target.closest('[data-id]'),a=b?.dataset.a;
+  if(a=='mas'){lista=!lista;return pintar()}
+  if(a=='nueva')return api.lanz('nueva');
+  if(c)api.lanz(a||'abrir',c.dataset.id);
+};
+onkeydown=e=>{if(e.key=='Escape')api.lanz('esc')};
+api.onLanz(l=>{L=l;pintar()});
+</script>

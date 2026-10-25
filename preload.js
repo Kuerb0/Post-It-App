@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('api',{
   cal:id=>r.invoke('cal',id),
   agenda:()=>r.invoke('agenda'),
   hechoCal:(id,k,v)=>r.send('hechoCal',id,k,v),
+  lanz:(a,id)=>r.send('lanz',a,id),
+  onLanz:f=>r.on('lanz',(_,l)=>f(l)),
   onSet:f=>r.on('set',(_,n)=>f(n)),
   onAgenda:f=>r.on('agenda',(_,ev)=>f(ev)),
 });
