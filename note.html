@@ -14,6 +14,9 @@ button.on{opacity:1;background:#0003}
 #ed input{margin:0 6px 0 0;vertical-align:middle}
 #ed div:has(>input:checked){text-decoration:line-through;opacity:.55}
 #ed h3{font-size:19px;margin:0}
+#ed .fold{font-weight:700;cursor:pointer;background:#0001;border-radius:3px;padding:1px 4px;margin:2px 0}
+#ed .fold::before{content:'▾ ';opacity:.6}#ed .fold[data-closed]::before{content:'▸ '}
+#ed .hid{display:none}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
 #ed.cols{overflow:hidden;overflow-x:auto;column-fill:auto;column-gap:18px;column-rule:1px solid #0002}
@@ -30,6 +33,7 @@ button.on{opacity:1;background:#0003}
 #help div{margin:3px 0}
 </style>
 <svg style="display:none"><defs>
+<symbol id=i-fold viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
 <symbol id=i-plus viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id=i-grid viewBox="0 0 24 24"><rect width=7 height=7 x=3 y=3 rx=1 /><rect width=7 height=7 x=14 y=3 rx=1 /><rect width=7 height=7 x=3 y=14 rx=1 /><rect width=7 height=7 x=14 y=14 rx=1 /></symbol>
 <symbol id=i-z0 viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
@@ -85,7 +89,8 @@ button.on{opacity:1;background:#0003}
   <button data-c=repeat title="Periodica: copia la linea como tarea bajo las fechas siguientes (14/10, 15/10...). Escribe en la linea 'cada 2 lunes', 'cada 3 dias'... para elegir cuando (Ctrl+Shift+R)"><svg><use href="#i-repeat"/></svg></button>
   <button data-c=dates title="Anadir varias fechas (Ctrl+Shift+D)"><svg><use href="#i-cal"/></svg></button>
   <button data-c=ul title="Viñetas (Ctrl+Shift+8)"><svg><use href="#i-ul"/></svg></button>
-  <button data-c=ol title="Numerada (Ctrl+Shift+7)"><svg><use href="#i-ol"/></svg></button><s></s>
+  <button data-c=ol title="Numerada (Ctrl+Shift+7)"><svg><use href="#i-ol"/></svg></button>
+  <button data-c=fold title="Carpeta: la línea pasa a ser un título que esconde/muestra lo de debajo, hasta la siguiente carpeta (Ctrl+Shift+F). Clic en el título para abrir o cerrar"><svg><use href="#i-fold"/></svg></button><s></s>
   <button data-c=outdent title="Quitar sangría (Shift+Tab)"><svg><use href="#i-outdent"/></svg></button>
   <button data-c=indent title="Sangría (Tab)"><svg><use href="#i-indent"/></svg></button>
   <button data-c=clear title="Quitar formato (Ctrl+Espacio)"><svg><use href="#i-clear"/></svg></button>
@@ -100,6 +105,7 @@ button.on{opacity:1;background:#0003}
   <div><b>Ctrl+Enter</b> crear tarea / marcarla</div>
   <div><b>* ␣ &nbsp;/&nbsp; 1. ␣</b> viñetas / numerada</div>
   <div><b>Ctrl+Shift+8 / 7</b> viñetas / numerada</div>
+  <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde/muestra lo que tiene debajo hasta la siguiente carpeta</div>
   <div><b>Tab / Shift+Tab</b> sangría</div>
   <div><b>Alt+↑ / Alt+↓</b> mover línea</div>
   <div><b>Ctrl+N / Ctrl+W</b> nueva / cerrar nota</div>
@@ -138,7 +144,9 @@ console.assert(next('diario',t0)=='2026-10-15'&&next('Miércoles',t0)=='2026-10-
   &&next('mensual',t0)=='2026-11-14'&&next('cada3d',t0)=='2026-10-17'&&next('xx',t0)==null,'next() falla');
 
 const title=()=>document.title=ed.innerText.trim().split(/\n/)[0].slice(0,60)||'Post-it'; // así se reconoce en la barra de tareas al minimizar
-let timer;const sv=()=>{const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());api.save(id,k.innerHTML);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
+// «carpetas»: una línea-título (.fold) cerrada (data-closed) esconde las líneas de debajo hasta la siguiente carpeta. Se recalcula entero: no hay estado aparte
+function refold(){let closed=false;for(const b of ed.children){if(b.classList.contains('fold')){closed=b.hasAttribute('data-closed');b.classList.remove('hid')}else b.classList.toggle('hid',closed)}}
+let timer;const sv=()=>{refold();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());api.save(id,k.innerHTML);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
 const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
@@ -151,7 +159,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';
+  ed.innerHTML=n.html||'<div><br></div>';refold();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -189,7 +197,7 @@ function lines(){
 // sin casillas → se las pone a las líneas que no la tienen · todas con casilla → marca las pendientes (o desmarca si todas están hechas)
 function task(){
   let L=lines();const multi=L.length>1;
-  if(multi)L=L.filter(l=>!blank(l)&&!isHead(l));
+  if(multi)L=L.filter(l=>!blank(l)&&!isHead(l)&&!l.classList.contains('fold'));
   const boxes=L.map(l=>l.firstElementChild?.type=='checkbox'?l.firstElementChild:null);
   if(boxes.some(b=>!b)){
     L.forEach((l,i)=>{
@@ -324,11 +332,17 @@ const A={
   hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),
   head:()=>ex('formatBlock',document.queryCommandValue('formatBlock')=='h3'?'div':'h3'),
   ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,dates:()=>toggleDates(),
+  fold(){ // la línea del cursor pasa a ser carpeta (o deja de serlo)
+    const L=line();if(!L||L.parentNode!==ed)return;
+    if(L.classList.contains('fold')){L.classList.remove('fold');L.removeAttribute('data-closed')}
+    else{L.firstElementChild?.type=='checkbox'&&L.firstElementChild.remove();L.classList.add('fold')}
+    refold();later();
+  },
   indent:()=>ex('indent'),outdent:()=>ex('outdent'),clear:()=>ex('removeFormat'),
 };
 // combo (c=Ctrl s=Shift a=Alt) : tecla física
 const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
-  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','Tab':'indent','s:Tab':'outdent'};
+  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyF':'fold','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyL':()=>api.lanz('menu'),'c:KeyM':()=>api.min(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
   'F1':toggleHelp,'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
@@ -339,6 +353,11 @@ document.onkeydown=e=>{
   if(G[k]){e.preventDefault();return G[k]()}
   if(K[k]){e.preventDefault();return A[K[k]]()}
   if(k=='Enter')setTimeout(()=>{if(copies())later()},0); // por si lo escrito es una cabecera de fecha nueva
+  // Enter en una carpeta: se abre (si no, la línea nueva quedaría escondida) y la línea nueva es normal, no otra carpeta
+  if(k=='Enter'){
+    const F=foldOf(getSelection().anchorNode);
+    if(F){F.removeAttribute('data-closed');setTimeout(()=>{const N=foldOf(getSelection().anchorNode);if(N&&N!==F){N.classList.remove('fold');N.removeAttribute('data-closed')}refold();later()},0)}
+  }
   // Enter en una tarea: la siguiente línea también es tarea; en una tarea vacía, sale de la lista
   if(k=='Enter'){
     const L=line(),c=L?.firstElementChild;
@@ -361,7 +380,14 @@ ed.oninput=()=>{
   later();
 };
 ed.onblur=()=>{copies();paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
-ed.onclick=e=>{const r=e.target.closest('.rep');if(r){r.remove();later()}};
+const foldOf=n=>(n?.nodeType==1?n:n?.parentElement)?.closest('.fold');
+let foldWas; // la carpeta donde estaba el cursor antes del clic: un clic ahí solo mueve el cursor (para editar el título), en otra abre/cierra
+ed.onmousedown=()=>{foldWas=foldOf(getSelection().anchorNode)};
+ed.onclick=e=>{
+  const r=e.target.closest('.rep');if(r){r.remove();later()}
+  const f=foldOf(e.target);
+  if(f&&f!==foldWas&&getSelection().isCollapsed){f.toggleAttribute('data-closed');refold();later()}
+};
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
 
 tb.onmousedown=e=>{e.preventDefault();const c=e.target.closest('button')?.dataset.c;if(c)A[c]()};

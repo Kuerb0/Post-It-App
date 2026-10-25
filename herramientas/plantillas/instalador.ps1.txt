@@ -128,6 +128,7 @@ $Trabajo = {
         $antes = Version-De $dest
         if ($antes) {
             $copia = Join-Path $dest ('anteriores\{0}_{1:yyyyMMdd-HHmmss}' -f $antes, (Get-Date))
+            New-Item -ItemType Directory -Path $copia -Force | Out-Null      # Copy-Item de un fichero no crea la carpeta destino
             foreach ($c in $App.Programa) { $o = Join-Path $dest $c; if (Test-Path -LiteralPath $o) { Copy-Item -LiteralPath $o -Destination (Join-Path $copia $c) -Recurse -Force } }
             Log "Versión anterior ($antes) guardada en $copia"
         }
