@@ -17,6 +17,7 @@ button.on{opacity:1;background:#0003}
 #ed .fold{font-weight:700;cursor:pointer;background:#0001;border-radius:3px;padding:1px 4px;margin:2px 0}
 #ed .fold::before{content:'▾ ';opacity:.6}#ed .fold[data-closed]::before{content:'▸ '}
 #ed .hid{display:none}
+#ed [data-d]::after{content:'  ·  ' attr(data-d);font-size:.75em;font-weight:400;opacity:.6}#ed [data-d=hoy]::after{opacity:1;font-weight:700}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
 #ed.cols{overflow:hidden;overflow-x:auto;column-fill:auto;column-gap:18px;column-rule:1px solid #0002}
@@ -146,7 +147,16 @@ console.assert(next('diario',t0)=='2026-10-15'&&next('Miércoles',t0)=='2026-10-
 const title=()=>document.title=ed.innerText.trim().split(/\n/)[0].slice(0,60)||'Post-it'; // así se reconoce en la barra de tareas al minimizar
 // «carpetas»: una línea-título (.fold) cerrada (data-closed) esconde las líneas de debajo hasta la siguiente carpeta. Se recalcula entero: no hay estado aparte
 function refold(){let closed=false;for(const b of ed.children){if(b.classList.contains('fold')){closed=b.hasAttribute('data-closed');b.classList.remove('hid')}else b.classList.toggle('hid',closed)}}
-let timer;const sv=()=>{refold();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());api.save(id,k.innerHTML);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
+// «faltan N días» junto a cada cabecera de fecha: atributo data-d que pinta el ::after (no es texto: ni se guarda ni se sincroniza)
+function paintDias(){
+  ed.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));
+  const hoy=new Date();hoy.setHours(12,0,0,0);
+  for(const [h,d] of headDates()){
+    const n=Math.round((d-hoy)/864e5);
+    h.dataset.d=n==0?'hoy':n==1?'mañana':n==-1?'ayer':n>0?`faltan ${n} días`:`hace ${-n} días`;
+  }
+}
+let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());k.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));api.save(id,k.innerHTML);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
 const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
@@ -159,7 +169,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';refold();
+  ed.innerHTML=n.html||'<div><br></div>';refold();paintDias();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -444,5 +454,5 @@ document.onselectionchange=()=>{
 
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
-setInterval(resets,60000);
+setInterval(()=>{resets();paintDias()},60000); // y al cambiar de día se actualizan los «faltan N días»
 </script>
