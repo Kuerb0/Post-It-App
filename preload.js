@@ -1,7 +1,7 @@
 const {contextBridge,ipcRenderer:r}=require('electron');
 contextBridge.exposeInMainWorld('api',{
   get:id=>r.invoke('get',id),
-  save:(id,html)=>r.send('save',id,html),
+  save:(id,html,alarms)=>r.send('save',id,html,alarms),
   color:(id,c)=>r.send('color',id,c),
   z:id=>r.invoke('z',id),
   glass:id=>r.invoke('glass',id),

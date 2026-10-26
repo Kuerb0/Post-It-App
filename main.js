@@ -1,4 +1,4 @@
-const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog,screen}=require('electron');
+const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog,screen,shell,Notification}=require('electron');
 const S=require('./sync');
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn,execFileSync}=require('child_process');
 
@@ -6,7 +6,7 @@ const LOCAL=path.join(__dirname,'notes.json');
 let DATA=LOCAL; // la ruta real se fija al arrancar (ubicar): en OneDrive, para que las notas se sincronicen entre equipos
 const ICON=path.join(__dirname,'assets','icon.png');
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f48fb1','#ce93d8'];
-let notes=[],pos={},last='',POS,tray,CFG,cfg={},carpeta=null,firma='',tExp;
+let notes=[],pos={},last='',POS,ALM,tray,CFG,cfg={},carpeta=null,firma='',tExp;
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
 const save=()=>{fs.mkdirSync(path.dirname(DATA),{recursive:true});fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));exportar()};
@@ -149,14 +149,30 @@ function ubicar(){ // dónde van las notas y qué carpeta se comparte con el Cal
   if(!cfg.notas){cfg.notas=S.rutaNotas({carpeta:c.origen=='creada'?null:carpeta,local:LOCAL});guardarCfg()} // «creada» = no hay OneDrive: junto a la app
   DATA=cfg.notas;S.migrarNotas(DATA,LOCAL);
 }
+// ---- alarmas: el editor manda con cada guardado las de la nota (n.alarms). Suenan aunque la nota esté cerrada o dormida; las ya sonadas se recuerdan en este equipo
+let sonadas=new Set();
+function sonar(n,a){
+  if(ahora){(pos[n.id]||(pos[n.id]={})).desk=ahora;gp()} // suena en el escritorio donde estás
+  open(n);const w=wins.get(n.id);
+  if(w){w.show();w.setAlwaysOnTop(true);w.focus();setTimeout(()=>{if(!w.isDestroyed())apply(w,find(n.id)||n,false)},8000)} // encima unos segundos
+  shell.beep();
+  const nt=new Notification({title:'⏰ '+a.txt,body:'Post-it · '+a.t.slice(11)});nt.on('click',()=>open(n));nt.show();
+}
+function comprobarAlarmas(){
+  const v=S.alarmasVencidas(notes,sonadas);
+  v.forEach(x=>{sonadas.add(x.clave);if(x.suena)sonar(x.nota,x.a)});
+  if(v.length)fs.writeFileSync(ALM,JSON.stringify([...sonadas]));
+}
 function iniciarSync(){
+  ALM=path.join(app.getPath('userData'),'alarmas.json');sonadas=new Set(read(ALM,[]));
+  comprobarAlarmas();setInterval(comprobarAlarmas,15000);
   exportar();refrescarAgenda();
   setInterval(refrescarAgenda,15000);
   setInterval(exportar,3600000); // «hoy» y «mañana» cambian de dia aunque la nota no se toque
 }
 
 ipcMain.handle('get',(e,id)=>find(id));
-ipcMain.on('save',(e,id,html)=>{const n=find(id);if(n){n.html=html;save()}});
+ipcMain.on('save',(e,id,html,al)=>{const n=find(id);if(n){n.html=html;n.alarms=al?.length?al:undefined;save()}}); // al = alarmas de la nota ({t,txt}), ver comprobarAlarmas
 ipcMain.on('color',(e,id,c)=>{ // c = #rrggbb elegido en el selector
   const n=find(id);if(!n||!/^#[0-9a-f]{6}$/i.test(c))return;
   n.color=c;save();win(e).setBackgroundColor(c);
@@ -192,6 +208,7 @@ ipcMain.on('del',(e,id)=>{
 });
 
 app.whenReady().then(()=>{
+  app.setAppUserModelId('Post-It'); // para que Windows enseñe las notificaciones de las alarmas
   Menu.setApplicationMenu(null); // sin menú por defecto: sus atajos (Ctrl+W, Ctrl+R…) no deben pisar los de la nota
   POS=path.join(app.getPath('userData'),'pos.json');
   pos=read(POS,{});

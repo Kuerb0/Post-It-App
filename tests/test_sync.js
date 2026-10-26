@@ -72,4 +72,12 @@ fs.writeFileSync(dest, '[{"id":"otro-equipo"}]');
 assert.strictEqual(S.migrarNotas(dest, local), false);                         // ya había unas (de otro equipo): mandan esas
 assert.strictEqual(fs.readFileSync(dest, 'utf8'), '[{"id":"otro-equipo"}]');
 assert.strictEqual(S.migrarNotas(local, local), false);                        // sin carpeta compartida: no hay nada que mover
+// --- alarmas: vencidas y no sonadas · sonadas ya no · futuras no · de hace más de un día se dan por sonadas sin avisar · la etiqueta ⏰ no es una actividad del Calendario
+const ahoraA = new Date(2026, 9, 26, 18, 30).getTime();
+const conAlarmas = [{ id: 'a', alarms: [{ t: '2026-10-26T18:30', txt: 'Dentista' }, { t: '2026-10-26T19:00', txt: 'Futura' }, { t: '2026-10-24T09:00', txt: 'Vieja' }] }, { id: 'b' }];
+let v = S.alarmasVencidas(conAlarmas, new Set(), ahoraA);
+assert.deepStrictEqual(v.map(x => [x.a.txt, x.suena]), [['Dentista', true], ['Vieja', false]]);
+assert.deepStrictEqual(S.alarmasVencidas(conAlarmas, new Set(v.map(x => x.clave)), ahoraA), []);
+assert.deepStrictEqual(S.lineas('<div>Dentista <span class="alarm past" contenteditable="false" data-t="2026-10-26T18:30">⏰ hoy 18:30</span>&nbsp;</div>').map(x => x.texto), ['Dentista']);
+assert.deepStrictEqual(ext('<div>Lunes 26/10</div><div>Dentista <span class="alarm" data-t="2026-10-26T18:30">⏰ hoy 18:30</span></div>'), []);
 console.log('TEST OK');

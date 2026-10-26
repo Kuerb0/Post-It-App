@@ -17,6 +17,11 @@ button.on{opacity:1;background:#0003}
 #ed .fold{font-weight:700;cursor:pointer;background:#0001;border-radius:3px;padding:1px 4px;margin:2px 0}
 #ed .fold::before{content:'▾ ';opacity:.6}#ed .fold[data-closed]::before{content:'▸ '}
 #ed .hid{display:none}
+#ed .alarm{background:#0002;border-radius:10px;padding:0 7px;font-size:.85em;cursor:pointer;white-space:nowrap;user-select:none}#ed .alarm.past{opacity:.5;text-decoration:line-through}
+#slash,#alp{position:fixed;z-index:5;display:none;background:#262626;color:#eee;border-radius:6px;box-shadow:0 3px 12px #0008;font-size:13px}
+#slash{min-width:150px;padding:3px}#slash div{padding:4px 10px;border-radius:4px;cursor:pointer}#slash div.sel{background:#0a84ff}
+#alp{padding:8px;gap:6px;align-items:center}#alp input{font:inherit;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 4px;color-scheme:dark}
+#alp button{width:auto;height:auto;padding:3px 10px;background:#3a3a3a;border-radius:4px;opacity:1}#alp button:hover{background:#4a4a4a}
 #ed [data-d]::after{content:'  ·  ' attr(data-d);font-size:.75em;font-weight:400;opacity:.6}#ed [data-d=hoy]::after{opacity:1;font-weight:700}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
@@ -35,6 +40,7 @@ button.on{opacity:1;background:#0003}
 </style>
 <svg style="display:none"><defs>
 <symbol id=i-fold viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+<symbol id=i-sort viewBox="0 0 24 24"><path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/></symbol>
 <symbol id=i-plus viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id=i-grid viewBox="0 0 24 24"><rect width=7 height=7 x=3 y=3 rx=1 /><rect width=7 height=7 x=14 y=3 rx=1 /><rect width=7 height=7 x=3 y=14 rx=1 /><rect width=7 height=7 x=14 y=14 rx=1 /></symbol>
 <symbol id=i-z0 viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
@@ -91,11 +97,14 @@ button.on{opacity:1;background:#0003}
   <button data-c=dates title="Anadir varias fechas (Ctrl+Shift+D)"><svg><use href="#i-cal"/></svg></button>
   <button data-c=ul title="Viñetas (Ctrl+Shift+8)"><svg><use href="#i-ul"/></svg></button>
   <button data-c=ol title="Numerada (Ctrl+Shift+7)"><svg><use href="#i-ol"/></svg></button>
-  <button data-c=fold title="Carpeta: la línea pasa a ser un título que esconde/muestra lo de debajo, hasta la siguiente carpeta (Ctrl+Shift+F). Clic en el título para abrir o cerrar"><svg><use href="#i-fold"/></svg></button><s></s>
+  <button data-c=fold title="Carpeta: la línea pasa a ser un título que esconde/muestra lo de debajo, hasta la siguiente carpeta (Ctrl+Shift+F). Clic en el título para abrir o cerrar"><svg><use href="#i-fold"/></svg></button>
+  <button data-c=sort title="Ordenar las carpetas por la fecha que llevan dentro (cumpleaños, aniversarios…): arriba la que llega antes desde hoy; las que no tienen fecha, abajo. Se hace solo al abrir la nota, al salir de ella y al cambiar de día (Ctrl+Shift+O: ahora)"><svg><use href="#i-sort"/></svg></button><s></s>
   <button data-c=outdent title="Quitar sangría (Shift+Tab)"><svg><use href="#i-outdent"/></svg></button>
   <button data-c=indent title="Sangría (Tab)"><svg><use href="#i-indent"/></svg></button>
   <button data-c=clear title="Quitar formato (Ctrl+Espacio)"><svg><use href="#i-clear"/></svg></button>
 </div>
+<div id=slash></div>
+<div id=alp><input type=datetime-local id=alt><button id=alok>OK</button><button id=alno title="Quitar la alarma">Quitar</button></div>
 <div id=help onclick="help.style.display='none'">
   <div><b>Ctrl+B / I / U</b> negrita, cursiva, subrayado</div>
   <div><b>Ctrl+T</b> tachado</div>
@@ -106,6 +115,8 @@ button.on{opacity:1;background:#0003}
   <div><b>Ctrl+Enter</b> crear tarea / marcarla</div>
   <div><b>* ␣ &nbsp;/&nbsp; 1. ␣</b> viñetas / numerada</div>
   <div><b>Ctrl+Shift+8 / 7</b> viñetas / numerada</div>
+  <div><b>/</b> menú de opciones (alarma, tarea, carpeta…): escribe para filtrar, ↑↓ y Intro. <b style="min-width:0">⏰ Alarma</b>: eliges fecha y hora (escribiéndola o con el selector) y a esa hora la nota salta aunque esté cerrada. Clic en la etiqueta para cambiarla o quitarla</div>
+  <div><b>Ctrl+Shift+O</b> ordenar las carpetas por la fecha que llevan dentro: arriba la que llega antes desde hoy (se repite cada año); sin fecha, abajo. Se hace solo al abrir la nota, al salir de ella y al cambiar de día</div>
   <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde/muestra lo que tiene debajo hasta la siguiente carpeta</div>
   <div><b>Tab / Shift+Tab</b> sangría</div>
   <div><b>Alt+↑ / Alt+↓</b> mover línea</div>
@@ -147,6 +158,25 @@ console.assert(next('diario',t0)=='2026-10-15'&&next('Miércoles',t0)=='2026-10-
 const title=()=>document.title=ed.innerText.trim().split(/\n/)[0].slice(0,60)||'Post-it'; // así se reconoce en la barra de tareas al minimizar
 // «carpetas»: una línea-título (.fold) cerrada (data-closed) esconde las líneas de debajo hasta la siguiente carpeta. Se recalcula entero: no hay estado aparte
 function refold(){let closed=false;for(const b of ed.children){if(b.classList.contains('fold')){closed=b.hasAttribute('data-closed');b.classList.remove('hid')}else b.classList.toggle('hid',closed)}}
+// ordena las carpetas por la fecha que lleva dentro cada una (cumpleaños, aniversarios: se repiten cada año): arriba la que llega antes desde hoy; sin fecha, al final.
+// Una carpeta es su título y las líneas de debajo hasta la siguiente; lo que haya antes de la primera no se mueve.
+function sortFolds(){
+  const kids=[...ed.children],i0=kids.findIndex(k=>k.classList.contains('fold'));
+  if(i0<0)return;
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const blocks=[];
+  for(const k of kids.slice(i0))k.classList.contains('fold')?blocks.push([k]):blocks.at(-1).push(k);
+  const when=b=>{
+    const L=b.find(isHead);if(!L)return Infinity;
+    const m=DATE.exec(text(L)),d=new Date(hoy.getFullYear(),m[2]-1,+m[1]);
+    if(d<hoy)d.setFullYear(d.getFullYear()+1);
+    return d-hoy;
+  };
+  blocks.sort((a,b)=>(when(a)>when(b))-(when(a)<when(b)));
+  const sorted=blocks.flat();
+  if(sorted.every((n,i)=>n===kids[i0+i]))return; // ya estaba en orden: no se toca (ni se guarda)
+  ed.append(...sorted);paintDias();later();
+}
 // «faltan N días» junto a cada cabecera de fecha: atributo data-d que pinta el ::after (no es texto: ni se guarda ni se sincroniza)
 function paintDias(){
   ed.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));
@@ -156,7 +186,21 @@ function paintDias(){
     h.dataset.d=n==0?'hoy':n==1?'mañana':n==-1?'ayer':n>0?`faltan ${n} días`:`hace ${-n} días`;
   }
 }
-let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());k.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));api.save(id,k.innerHTML);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
+// ── Alarmas: «/» abre un menú de opciones; «Alarma» pide fecha y hora (se escribe o se elige) y deja una etiqueta ⏰ en la línea.
+// Con cada guardado se mandan al programa principal ({t, txt}), que las hace sonar aunque la nota esté cerrada.
+const pad2=v=>String(v).padStart(2,'0');
+const local=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+function alarmLabel(s){
+  const t=new Date(s.dataset.t),h=new Date(),dd=Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-new Date(h.getFullYear(),h.getMonth(),h.getDate()))/864e5);
+  s.textContent='⏰ '+(dd==0?'hoy':dd==1?'mañana':pad2(t.getDate())+'/'+pad2(t.getMonth()+1))+' '+pad2(t.getHours())+':'+pad2(t.getMinutes());
+  s.classList.toggle('past',t<h);
+}
+const paintAlarms=()=>ed.querySelectorAll('.alarm').forEach(alarmLabel);
+const alarms=()=>[...ed.querySelectorAll('.alarm')].map(s=>{
+  const k=(s.closest('div,li,h3,p')||s.parentNode).cloneNode(true);k.querySelectorAll('.alarm,.back,.rep,.cal').forEach(x=>x.remove());
+  return{t:s.dataset.t,txt:k.textContent.trim().slice(0,80)||'Alarma'};
+});
+let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());k.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));api.save(id,k.innerHTML,alarms());title()}; // los eventos del Calendario no se guardan: se pintan al abrir
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
 const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
@@ -169,7 +213,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';refold();paintDias();
+  ed.innerHTML=n.html||'<div><br></div>';sortFolds();refold();paintDias();paintAlarms();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -247,7 +291,7 @@ function headDates(){
     const m=DATE.exec(text(h));
     if(m[3])y=+m[3]<100?2000+ +m[3]:+m[3];
     let d=new Date(y,m[2]-1,+m[1],12);
-    if(!m[3]&&(prev?d<prev:Date.now()-d>183*864e5))d=new Date(++y,m[2]-1,+m[1],12);
+    if(!m[3]&&(!prev||d<prev)&&Date.now()-d>183*864e5)d=new Date(++y,m[2]-1,+m[1],12); // año siguiente solo si ya pasó hace mucho (como en sync.js); que esté desordenada no basta
     out.set(h,prev=d);
   }
   return out;
@@ -342,6 +386,7 @@ const A={
   hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),
   head:()=>ex('formatBlock',document.queryCommandValue('formatBlock')=='h3'?'div':'h3'),
   ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,dates:()=>toggleDates(),
+  sort:sortFolds,
   fold(){ // la línea del cursor pasa a ser carpeta (o deja de serlo)
     const L=line();if(!L||L.parentNode!==ed)return;
     if(L.classList.contains('fold')){L.classList.remove('fold');L.removeAttribute('data-closed')}
@@ -352,12 +397,17 @@ const A={
 };
 // combo (c=Ctrl s=Shift a=Alt) : tecla física
 const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
-  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyF':'fold','Tab':'indent','s:Tab':'outdent'};
+  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyF':'fold','cs:KeyO':'sort','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyL':()=>api.lanz('menu'),'c:KeyM':()=>api.min(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
   'F1':toggleHelp,'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
+  if(slN&&slash.style.display=='block'){ // menú «/» abierto: él se queda las flechas, Intro/Tab y Esc
+    if(e.key=='ArrowDown'||e.key=='ArrowUp'){e.preventDefault();slSel=(slSel+(e.key=='ArrowDown'?1:-1)+slItems.length)%slItems.length;return slashCheck()}
+    if(e.key=='Enter'||e.key=='Tab'){e.preventDefault();return slashPick(slItems[slSel][0])}
+    if(e.key=='Escape'){e.preventDefault();return slashClose()}
+  }
   const m=(e.ctrlKey?'c':'')+(e.shiftKey?'s':'')+(e.altKey?'a':''),k=(m?m+':':'')+e.code;
   if(e.ctrlKey&&/^Key[BIU]$/.test(e.code))fixSel(); // Ctrl+B/I/U los hace el navegador
   if(G[k]){e.preventDefault();return G[k]()}
@@ -389,16 +439,78 @@ ed.oninput=()=>{
   }
   later();
 };
-ed.onblur=()=>{copies();paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
+ed.onblur=()=>{slashClose();if(alOpen()){sv();return} // con el selector de alarma abierto no se toca el texto: su posición se perdería
+  copies();sortFolds();paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
 const foldOf=n=>(n?.nodeType==1?n:n?.parentElement)?.closest('.fold');
 let foldWas; // la carpeta donde estaba el cursor antes del clic: un clic ahí solo mueve el cursor (para editar el título), en otra abre/cierra
 ed.onmousedown=()=>{foldWas=foldOf(getSelection().anchorNode)};
 ed.onclick=e=>{
+  const al=e.target.closest('.alarm');if(al)return openAlarm(al);
   const r=e.target.closest('.rep');if(r){r.remove();later()}
   const f=foldOf(e.target);
   if(f&&f!==foldWas&&getSelection().isCollapsed){f.toggleAttribute('data-closed');refold();later()}
 };
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
+
+// ── «/»: menú de opciones junto al cursor (se filtra al escribir, ↑↓ Intro, Esc). «Alarma» abre el selector de fecha y hora (alp).
+const SL=[['alarm','⏰ Alarma'],['task','☑ Tarea'],['fold','📁 Carpeta'],['head','H Título'],['ul','• Viñetas'],['ol','1. Numerada'],['dates','📅 Varias fechas'],['repeat','🔁 Periódica']];
+let slN=null,slAt=0,slSel=0,slItems=[];
+function caretRect(){
+  const s=getSelection();if(!s.rangeCount)return ed.getBoundingClientRect();
+  let r=s.getRangeAt(0).getBoundingClientRect();
+  if(!r.height){const n=s.anchorNode;r=(n.nodeType==1?n:n.parentElement).getBoundingClientRect()} // línea vacía: el rectángulo del cursor mide 0
+  return r;
+}
+function showAt(el,display,r){ // junto a r, sin salirse de la ventana
+  el.style.display=display;const w=el.offsetWidth,h=el.offsetHeight;
+  el.style.left=Math.max(4,Math.min(r.left,innerWidth-w-4))+'px';
+  el.style.top=Math.max(4,r.bottom+2+h>innerHeight?r.top-h-2:r.bottom+2)+'px';
+}
+function slashClose(){slash.style.display='none';slN=null}
+function slashCheck(){
+  const s=getSelection(),n=s.anchorNode;
+  const m=n?.nodeType==3&&s.isCollapsed&&/(?:^|\s)\/([a-záéíóúñ]*)$/i.exec(n.data.slice(0,s.anchorOffset)); // «/» al empezar la línea o tras un espacio (12/10 no cuenta)
+  if(!m)return slashClose();
+  const q=norm(m[1]);
+  slItems=SL.filter(([k,l])=>norm(l).includes(q)||k.startsWith(q));
+  if(!slItems.length)return slashClose();
+  slN=n;slAt=s.anchorOffset-m[1].length-1;slSel=Math.min(slSel,slItems.length-1);
+  slash.innerHTML=slItems.map(([k,l],i)=>`<div data-k=${k}${i==slSel?' class=sel':''}>${l}</div>`).join('');
+  showAt(slash,'block',caretRect());
+}
+function slashPick(k){
+  const n=slN,s=getSelection();
+  n.deleteData(slAt,s.anchorOffset-slAt);s.collapse(n,slAt);slashClose(); // quita «/texto»
+  k=='alarm'?openAlarm():A[k]();
+}
+slash.onmousedown=e=>{e.preventDefault();const k=e.target.dataset.k;if(k)slashPick(k)};
+
+let alRange=null,alSpan=null;
+const alOpen=()=>alp.style.display!='none';
+function openAlarm(span){ // span = alarma existente que se edita (sin span: una nueva en el cursor)
+  const s=getSelection();alSpan=span||null;alRange=!span&&s.rangeCount?s.getRangeAt(0).cloneRange():null;
+  const d=new Date();d.setSeconds(0,0);d.setMinutes(d.getMinutes()<30?30:60); // por defecto, la próxima hora o media
+  alt.value=span?span.dataset.t:local(d);alno.style.display=span?'':'none';
+  showAt(alp,'flex',span?span.getBoundingClientRect():caretRect());alt.focus();
+}
+function alarmEnd(ok){
+  const v=alt.value;alp.style.display='none';ed.focus();
+  if(ok&&v){
+    if(alSpan){alSpan.dataset.t=v;alarmLabel(alSpan)}
+    else{
+      // a mano y no con execCommand('insertHTML'): tras un espacio al final de la línea, Chrome la saca de la línea
+      const s=getSelection(),r=alRange||document.createRange(),sp=document.createTextNode(' '),a=document.createElement('span');
+      if(!alRange){r.selectNodeContents(ed);r.collapse(false)}
+      a.className='alarm';a.contentEditable=false;a.dataset.t=v;
+      r.insertNode(sp);r.insertNode(a);alarmLabel(a);s.collapse(sp,1);
+    }
+    later();
+  }
+  alSpan=alRange=null;
+}
+alok.onclick=()=>alarmEnd(true);
+alno.onclick=()=>{alSpan?.remove();alarmEnd(false);later()};
+alt.onkeydown=e=>{e.stopPropagation();if(e.key=='Enter'){e.preventDefault();alarmEnd(true)}else if(e.key=='Escape')alarmEnd(false)};
 
 tb.onmousedown=e=>{e.preventDefault();const c=e.target.closest('button')?.dataset.c;if(c)A[c]()};
 // selector nativo (mapa de color + RGB): en vivo mientras arrastras, se guarda al cerrar
@@ -449,10 +561,11 @@ del.onclick=()=>api.del(id);
 const STATE={bold:'bold',italic:'italic',underline:'underline',strike:'strikeThrough',ul:'insertUnorderedList',ol:'insertOrderedList'};
 document.onselectionchange=()=>{
   if(document.activeElement!==ed)return;
+  slashCheck();
   for(const [b,c] of Object.entries(STATE))tb.querySelector(`[data-c=${b}]`).classList.toggle('on',document.queryCommandState(c));
 };
 
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
-setInterval(()=>{resets();paintDias()},60000); // y al cambiar de día se actualizan los «faltan N días»
+setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen())sortFolds();paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
 </script>

@@ -17,7 +17,7 @@ const equipo = () => os.hostname().replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) 
 const entidades = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
 function lineas(html) {
   html = String(html || '')
-    .replace(/<span[^>]*class=["']?(?:back|rep)[^>]*>[\s\S]*?<\/span>/gi, '')    // «vuelve…» y el icono de periódica
+    .replace(/<span[^>]*class=["']?(?:back|rep|alarm)[^>]*>[\s\S]*?<\/span>/gi, '')    // «vuelve…», el icono de periódica y las etiquetas de alarma (su hora no es una actividad)
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
     .replace(/<div[^>]*class=["']?cal\b[^>]*>[\s\S]*?<\/div>/gi, '');              // eventos del Calendario pintados en la nota: no vuelven a él
   return html.split(/<\/(?:div|li|h3|p)>|<br\s*\/?>/i).map(seg => {
@@ -65,6 +65,19 @@ function extraer(notas, hoy) {
     }
   }
   return items;
+}
+
+// ------------------------------------------------------------------ alarmas
+// n.alarms = [{t: '2026-10-26T18:30' (hora local), txt}] (las manda el editor al guardar). Devuelve las que ya vencieron y no constaban como sonadas:
+// {nota, a, clave, suena}. suena=false si vencieron hace más de un día (el equipo estaba apagado): se dan por sonadas sin avisar.
+function alarmasVencidas(notas, sonadas, ahora = Date.now()) {
+  const out = [];
+  for (const n of notas) for (const a of n.alarms || []) {
+    const clave = n.id + '|' + a.t, t = new Date(a.t).getTime();
+    if (sonadas.has(clave) || !(t <= ahora)) continue;
+    out.push({ nota: n, a, clave, suena: ahora - t < 864e5 });
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------ carpeta compartida
@@ -127,4 +140,4 @@ function firmaAgenda(carpeta) {
   try { return fs.readdirSync(carpeta).filter(f => f.startsWith('agenda-')).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
 }
 
-module.exports = { lineas, extraer, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
+module.exports = { lineas, extraer, alarmasVencidas, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
