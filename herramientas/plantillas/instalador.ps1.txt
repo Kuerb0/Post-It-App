@@ -17,7 +17,7 @@ $App = @{ Nombre = '@@NOMBRE@@'; Version = '@@VERSION@@'; Comprueba = '@@COMPRUE
           Reqs = '@@REQS@@'; Icono = '@@ICONO@@'; Imports = '@@IMPORTS@@'; PipExtra = '@@PIP_EXTRA@@'; ExtraImport = '@@EXTRA_IMPORT@@'
           Datos = '@@DATOS@@'; Carpetas = @(@@CARPETAS@@); Programa = @(@@PROGRAMA@@)
           VersionFile = '@@VERSION_FILE@@'; VersionRe = '@@VERSION_RE@@'; PyMin = '@@PY_MIN@@'; PyImport = '@@PY_IMPORT@@'; PipPost = '@@PIP_POST@@'
-          PrimeraVez = '@@PRIMERA_VEZ@@'; PrimeraSenal = '@@PRIMERA_SENAL@@'; Tipo = '@@TIPO@@'; ElectronVersion = '@@ELECTRON_VERSION@@'; ElectronAntiguo = '@@ELECTRON_ANTIGUO@@'; SinArranque = '@@SIN_ARRANQUE@@'; PortalUrl = '@@PORTAL_URL@@'; PortalPrefijo = '@@PORTAL_PREFIJO@@' }
+          PrimeraVez = '@@PRIMERA_VEZ@@'; PrimeraSenal = '@@PRIMERA_SENAL@@'; Tipo = '@@TIPO@@'; ElectronVersion = '@@ELECTRON_VERSION@@'; ElectronAntiguo = '@@ELECTRON_ANTIGUO@@'; SinArranque = '@@SIN_ARRANQUE@@'; CarpetaAntigua = '@@CARPETA_ANTIGUA@@'; PortalUrl = '@@PORTAL_URL@@'; PortalPrefijo = '@@PORTAL_PREFIJO@@' }
 if (-not $NombreAcceso) { $NombreAcceso = $App.Nombre }
 if (-not $Origen) { $Origen = $Self }
 $CuervoPng = '@@CUERVO_PNG@@'      # el cuervo del banner (lo dibuja generar_instaladores.py a partir de plantillas/cuervo.txt)
@@ -157,14 +157,26 @@ $Trabajo = {
         }
         if (-not (Test-Path -LiteralPath (Join-Path $dest $App.Comprueba))) { throw "No se ha podido extraer $($App.Comprueba)." }
         foreach ($c in $App.Carpetas) { New-Item -ItemType Directory -Path (Join-Path $dest $c) -Force | Out-Null }
-        Log "$n ficheros en $dest (verificados con SHA-256)"; Paso 1 'ok'; Prog 18; Cancelado
+        Log "$n ficheros en $dest (verificados con SHA-256)"
+        # diseño antiguo: la app vivía en <carpeta>\app. Esa copia ya no se usa y, si llega a arrancar, se apunta sola al inicio de Windows (y se abría la versión vieja): se aparta a anteriores\
+        $vieja = $(if ($App.CarpetaAntigua) { Join-Path $dest $App.CarpetaAntigua } else { $null })
+        if ($vieja -and (Test-Path -LiteralPath (Join-Path $vieja $App.Comprueba))) {
+            $aparte = Join-Path $dest ('anteriores\{0}-antigua_{1:yyyyMMdd-HHmmss}' -f $App.CarpetaAntigua, (Get-Date))
+            New-Item -ItemType Directory -Path (Split-Path -Parent $aparte) -Force | Out-Null
+            Move-Item -LiteralPath $vieja -Destination $aparte -Force
+            Log "Copia antigua ($($App.CarpetaAntigua)\) apartada en $aparte"
+        }
+        Paso 1 'ok'; Prog 18; Cancelado
 
         if ($App.Tipo -eq 'electron') {
         # 2-4. Electron: el motor de la app (sin Node.js ni npm): se descarga la publicacion oficial y se comprueba su SHA-256
         $paso = 2; Paso 2 'curso'
         $rt = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\electron"
         $exeE = $null
-        $cands = @((Join-Path $rt 'electron.exe')); if ($App.ElectronAntiguo) { $cands += (Join-Path $env:LOCALAPPDATA $App.ElectronAntiguo) }
+        $cands = @((Join-Path $rt 'electron.exe'))
+        $loc = Join-Path $dest 'electron\electron.exe'      # el de una instalación anterior en esta misma carpeta, si es la versión que pide la app
+        if ($App.ElectronVersion -and (Test-Path -LiteralPath $loc) -and ((Get-Item -LiteralPath $loc).VersionInfo.FileVersion -like "$($App.ElectronVersion)*")) { $cands += $loc }
+        if ($App.ElectronAntiguo) { $cands += (Join-Path $env:LOCALAPPDATA $App.ElectronAntiguo) }
         if (-not $O.ForzarDescarga) { foreach ($c in $cands) { if (-not $exeE -and (Test-Path -LiteralPath $c)) { $exeE = $c } } }
         if ($exeE) { Log "Electron ya está instalado: $exeE"; Paso 2 'ok'; Paso 3 'ok' }
         else {
@@ -260,6 +272,12 @@ $Trabajo = {
         $pyw = $py -replace 'python\.exe$', 'pythonw.exe'
         $lanza = $(if ($App.Tipo -eq 'electron') { $dest } else { Join-Path $dest $App.Lanzador })
         $cwd = $(if ($App.Tipo -eq 'electron') { $dest } else { Split-Path -Parent $lanza })
+        # entradas de inicio de Windows (Run) que arrancaban la carpeta antigua: pasan a la principal, con el mismo Electron
+        if ($vieja -and $App.Tipo -eq 'electron') {
+            $rk = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+            $pr = Get-ItemProperty -Path $rk -ErrorAction SilentlyContinue
+            if ($pr) { foreach ($pp in $pr.PSObject.Properties) { if ($pp.Value -is [string] -and $pp.Value.IndexOf($vieja, [StringComparison]::OrdinalIgnoreCase) -ge 0) { Set-ItemProperty -Path $rk -Name $pp.Name -Value ('"{0}" "{1}"' -f $py, $dest); Log "Inicio de Windows: «$($pp.Name)» ahora arranca $dest" } } }
+        }
         if ($O.SinAccesos) { Log 'Omitido (-SinAccesos).'; Paso 5 'aviso' }
         else {
             $w = New-Object -ComObject WScript.Shell
@@ -302,6 +320,13 @@ $Trabajo = {
                     DisplayIcon = (Join-Path $dest $App.Icono); UninstallString = '"' + (Join-Path $dd 'Desinstalar.bat') + '"' }
             foreach ($nombre in $v.Keys) { Set-ItemProperty -Path $k -Name $nombre -Value $v[$nombre] }
             Set-ItemProperty -Path $k -Name NoModify -Value 1 -Type DWord; Set-ItemProperty -Path $k -Name NoRepair -Value 1 -Type DWord
+            # entradas viejas del mismo programa y carpeta (instaladores antiguos usaban otro nombre de clave, p. ej. «PostIt»): se quitan para que no salga duplicado en Aplicaciones
+            $un = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+            foreach ($o in @(Get-ChildItem -Path $un -ErrorAction SilentlyContinue)) {
+                if ($o.PSChildName -eq $App.Nombre) { continue }
+                $p = Get-ItemProperty -Path $o.PSPath -ErrorAction SilentlyContinue
+                if ($p.Publisher -eq 'Kuerb0' -and $p.DisplayName -like "$($App.Nombre)*" -and $p.InstallLocation -and ($p.InstallLocation.TrimEnd('\') -ieq $dest.TrimEnd('\'))) { Remove-Item -Path $o.PSPath -Recurse -Force; Log "Entrada antigua quitada de Aplicaciones: $($o.PSChildName) ($($p.DisplayName))" }
+            }
             Log "Desinstalador: $dd"; Paso 6 'ok'
         }
         Prog 100

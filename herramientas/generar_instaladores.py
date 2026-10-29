@@ -42,6 +42,7 @@ ASISTENTE = {
     "ELECTRON_VERSION": "44.7.2",                          # la que ya usa la app
     "ELECTRON_ANTIGUO": r"PostIt\node_modules\electron\dist\electron.exe",   # instalacion antigua con npm: se reutiliza si esta
     "SIN_ARRANQUE": "1",                                    # la propia app se registra para arrancar con Windows
+    "CARPETA_ANTIGUA": "app",                               # diseño de 1.5: la app vivía en <carpeta>\app; el instalador la aparta y reapunta el inicio de Windows a la carpeta principal
     "COMPRUEBA": "main.js", "LANZADOR": ".", "ICONO": r"assets\icon.ico",
     "DATOS": "notes.json",
     "PROGRAMA": ["main.js", "sync.js", "note.html", "lanzador.html", "preload.js", "package.json", "assets"],
@@ -224,7 +225,7 @@ def cuervo_png(altura=180):
 DEFECTOS = {"VERSION_RE": "", "PY_MIN": "3.10", "PY_IMPORT": "", "PIP_POST": "", "PRIMERA_VEZ": "", "PRIMERA_SENAL": "",
             "PIP_EXTRA": "", "EXTRA_IMPORT": "", "IMPORTS": "", "REQS": "", "CARPETAS": [], "DATOS": "",
             "PORTAL_URL": "https://kuerb0.github.io/portal/webs.json",
-            "TIPO": "python", "ELECTRON_VERSION": "", "ELECTRON_ANTIGUO": "", "SIN_ARRANQUE": ""}
+            "TIPO": "python", "ELECTRON_VERSION": "", "ELECTRON_ANTIGUO": "", "SIN_ARRANQUE": "", "CARPETA_ANTIGUA": ""}
 
 
 def asistente(version):
