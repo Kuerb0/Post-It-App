@@ -106,7 +106,7 @@ function refrescarAgenda(){
   firma=f;
   for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventosNotas()); // notas unidas: pintan los eventos bajo sus fechas
 }
-const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),40):[]; // la semana pasada y el mes que viene
+const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),127):[]; // la semana pasada y los 120 días siguientes (lo que escribe el Calendario, DIAS_AGENDA)
 // ---- lanzador (clic en el icono de la bandeja): miniaturas de las notas, abrir/cerrar, cuáles arrancan y cuál es la principal (lanzador.html)
 let lw,lwCerrado=0;
 const cl=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));

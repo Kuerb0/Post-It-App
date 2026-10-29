@@ -85,4 +85,9 @@ const carpetaR = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-refresco-'));
 S.pedirRefresco(carpetaR, 'PCX');
 assert.deepStrictEqual(fs.readdirSync(carpetaR), ['refrescar-PCX.txt']);
 assert.deepStrictEqual(S.leerAgenda(carpetaR, hoy, 7), []);
+// --- rango de la agenda: un evento a 100 días entra con la ventana de Post-It (127 = 7 atrás + 120) y no con la antigua de 40
+const carpetaG = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-agenda-'));
+fs.writeFileSync(path.join(carpetaG, 'agenda-PCX.json'), JSON.stringify({ version: 1, equipo: 'PCX', eventos: [{ id: 'lejos', titulo: 'Lejos', inicio: '2027-01-27T10:00:00', fin: '2027-01-27T11:00:00', todo_dia: false }] }));
+assert.deepStrictEqual(S.leerAgenda(carpetaG, hoy, 127).map(e => e.id), ['lejos']);
+assert.deepStrictEqual(S.leerAgenda(carpetaG, hoy, 40), []);
 console.log('TEST OK');
