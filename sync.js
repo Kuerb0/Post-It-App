@@ -117,6 +117,9 @@ function escribirAtomico(ruta, objeto) {
   fs.writeFileSync(tmp, nuevo); fs.renameSync(tmp, ruta);
   return true;
 }
+function pedirRefresco(carpeta, nombre = equipo()) {                    // aviso al Calendario de este equipo: que relea Outlook ya (él borra el fichero al recogerlo)
+  fs.writeFileSync(path.join(carpeta, `refrescar-${nombre}.txt`), iso(new Date()));
+}
 function escribirNotas(carpeta, items, nombre = equipo()) {            // el contenido no lleva la hora de escritura: si no cambia nada, no se toca el fichero
   return escribirAtomico(path.join(carpeta, `notas-${nombre}.json`), { version: 1, equipo: nombre, items });
 }
@@ -140,4 +143,4 @@ function firmaAgenda(carpeta) {
   try { return fs.readdirSync(carpeta).filter(f => f.startsWith('agenda-')).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
 }
 
-module.exports = { lineas, extraer, alarmasVencidas, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
+module.exports = { lineas, extraer, alarmasVencidas, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, pedirRefresco, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };

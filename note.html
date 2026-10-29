@@ -3,17 +3,18 @@
 <style>
 html,body{margin:0;height:100%;overflow:hidden}
 :root{--ibeam:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'><path d='M8 3h8M12 3v18M8 21h8' stroke='black' stroke-width='5' stroke-linecap='round' fill='none'/><path d='M8 3h8M12 3v18M8 21h8' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/></svg>") 10 10,text}
-body{display:flex;flex-direction:column;font:15px 'Segoe UI',sans-serif;color:#222;position:relative}
+body{display:flex;flex-direction:column;font:var(--fs,15px) 'Segoe UI',sans-serif;color:#222;position:relative}
 svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 #bar{height:30px;flex:none;display:flex;align-items:center;background:#0001;-webkit-app-region:drag}
 #bar i{flex:1}
 button{-webkit-app-region:no-drag;border:0;background:none;color:inherit;cursor:pointer;width:32px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;opacity:.6}
 button:hover{opacity:1;background:#0002}
 button.on{opacity:1;background:#0003}
-#ed{flex:1;overflow:auto;padding:8px 10px;outline:0;word-break:break-word;cursor:var(--ibeam,text)}
+@keyframes rot{to{transform:rotate(360deg)}}#refb.spin svg{animation:rot 1s linear infinite}
+#ed{flex:1;overflow:auto;padding:8px 10px;outline:0;word-break:break-word;cursor:var(--ibeam,text);line-height:var(--lh,1.35)}
 #ed input{margin:0 6px 0 0;vertical-align:middle}
 #ed div:has(>input:checked){text-decoration:line-through;opacity:.55}
-#ed h3{font-size:19px;margin:0}
+#ed h3{font-size:calc(var(--fs,15px)*1.27);margin:0}
 #ed .fold{font-weight:700;cursor:pointer;background:#0001;border-radius:3px;padding:1px 4px;margin:2px 0}
 #ed .fold::before{content:'▾ ';opacity:.6}#ed .fold[data-closed]::before{content:'▸ '}
 #ed .hid{display:none}
@@ -22,6 +23,8 @@ button.on{opacity:1;background:#0003}
 #slash{min-width:150px;padding:3px}#slash div{padding:4px 10px;border-radius:4px;cursor:pointer}#slash div.sel{background:#0a84ff}
 #alp{padding:8px;gap:6px;align-items:center}#alp input{font:inherit;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 4px;color-scheme:dark}
 #alp button{width:auto;height:auto;padding:3px 10px;background:#3a3a3a;border-radius:4px;opacity:1}#alp button:hover{background:#4a4a4a}
+#ed [data-d]{font-weight:700} /* cabecera de fecha detectada (paintDias): todo en negrita, día de la semana incluido */
+#est{display:none;flex:none;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:3px 8px;background:#0002;font-size:13px}#est input{width:90px;vertical-align:middle}#est span{min-width:26px}#est button{width:auto;padding:0 8px;font-size:13px;opacity:.85}#est button[data-r]{width:22px;padding:0;font-size:16px;line-height:20px;height:22px;border-radius:4px;background:#0002}#est input{width:70px;margin:0 2px}#est .g{display:flex;align-items:center;gap:4px;white-space:nowrap}
 #ed [data-d]::after{content:'  ·  ' attr(data-d);font-size:.75em;font-weight:400;opacity:.6}#ed [data-d=hoy]::after{opacity:1;font-weight:700}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
@@ -68,6 +71,8 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-outdent viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M21 12H11M21 6H11M21 18H11"/></symbol>
 <symbol id=i-indent viewBox="0 0 24 24"><path d="M3 8l4 4-4 4M21 12H11M21 6H11M21 18H11"/></symbol>
 <symbol id=i-clear viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21M22 21H7M5 11l9 9"/></symbol>
+<symbol id=i-refresh viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></symbol>
+<symbol id=i-textsize viewBox="0 0 24 24"><path d="M3 7V5h13v2M10 5v14M12 19H8M15 13v-1h6v1M18 12v7M17 19h2"/></symbol>
 </defs></svg>
 
 <div id=bar>
@@ -75,14 +80,17 @@ button.on{opacity:1;background:#0003}
   <button onclick="api.lanz('menu')" title="Todas las notas (Ctrl+L)"><svg><use href="#i-grid"/></svg></button><i></i>
   <button id=cb><svg><use href="#i-cols"/></svg><span id=cn></span></button>
   <button id=calb><svg><use href="#i-calsync"/></svg></button>
+  <button id=refb style="display:none" title="Actualizar: relee el Calendario y Outlook"><svg><use href="#i-refresh"/></svg></button>
   <button id=gl><svg><use href="#i-glass"/></svg></button>
   <button id=zb><svg><use href="#i-z0"/></svg></button>
   <button id=col title="Elegir color (Ctrl+Shift+C)"><svg><use href="#i-color"/></svg></button><input type=color id=cp style="position:absolute;width:0;height:0;opacity:0;pointer-events:none">
+  <button id=szb title="Tamaño de letra e interlineado (para todas las notas)"><svg><use href="#i-textsize"/></svg></button>
   <button id=hbtn title="Atajos (F1)"><svg><use href="#i-help"/></svg></button>
   <button id=del title="Eliminar nota"><svg><use href="#i-trash"/></svg></button>
   <button onclick="api.min()" title="Minimizar (Ctrl+M): queda en la barra de tareas"><svg><use href="#i-min"/></svg></button>
   <button onclick="api.close()" title="Cerrar (Ctrl+W)"><svg><use href="#i-x"/></svg></button>
 </div>
+<div id=est><span class=g>Letra <button data-r=fsr data-m=- title="Menos">−</button><input type=range id=fsr min=9 max=30 step=1><button data-r=fsr data-m=+ title="Más">+</button><span id=fsv></span></span><span class=g>Interlineado <button data-r=lhr data-m=- title="Menos">−</button><input type=range id=lhr min=1 max=2.6 step=.05><button data-r=lhr data-m=+ title="Más">+</button><span id=lhv></span></span><button id=estr>Restablecer</button></div>
 <div id=ed contenteditable spellcheck=false></div>
 <div id=dts>Anadir fechas: <button data-n=2>+2</button><button data-n=3>+3</button><button data-n=5>+5</button><button data-n=7>+7</button><button data-n=14>+14</button><button data-n=30>+30</button> dias</div>
 <div id=tb>
@@ -541,19 +549,30 @@ function paintCal(){
     let at=h;
     for(const e of agenda.filter(e=>e.inicio.slice(0,10)==day(d))){
       const x=document.createElement('div');x.className='cal';x.contentEditable=false;x.dataset.k=e.id;
-      x.innerHTML='<input type=checkbox'+(hechos.has(e.id)?' checked':'')+'>📅 '+(e.todo_dia?'':esc(e.inicio.slice(11,16))+' ')+esc(e.titulo);
+      const c=/^#[0-9a-f]{6}$/i.test(e.color||'')?e.color:null; // color de la etiqueta: el icono 📅 (emoji, no se tiñe) pasa a un SVG de ese color
+      const ico=c?'<svg width=14 height=14 viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:3px"><rect x=1 y=2 width=14 height=13 rx=3 fill="'+c+'"/><rect x=3 y=5 width=10 height=1.5 rx=.75 fill="#fff"/><g fill="#fff"><rect x=3.5 y=8.5 width=2 height=2/><rect x=7 y=8.5 width=2 height=2/><rect x=10.5 y=8.5 width=2 height=2/><rect x=3.5 y=11.5 width=2 height=2/><rect x=7 y=11.5 width=2 height=2/></g><rect x=4 y=.75 width=1.6 height=3 rx=.8 fill="'+c+'"/><rect x=10.4 y=.75 width=1.6 height=3 rx=.8 fill="'+c+'"/></svg>':'📅 ';
+      x.innerHTML='<input type=checkbox'+(hechos.has(e.id)?' checked':'')+'>'+ico+(e.todo_dia?'':esc(e.inicio.slice(11,16))+' ')+esc(e.titulo);
       at.after(x);at=x;
     }
   }
 }
 async function setCal(v){
-  cal=!!v;calb.classList.toggle('on',cal);
+  cal=!!v;calb.classList.toggle('on',cal);refb.style.display=cal?'':'none'; // solo tiene sentido en notas unidas al Calendario
   calb.title=cal?'Unida al Calendario: sus eventos salen bajo cada fecha (clic en la casilla: tacharlos) y las líneas con hora bajo una fecha salen en él (clic: separar)':'Unir con el Calendario: ver sus eventos bajo cada fecha y mandarle las líneas con hora que haya bajo una fecha';
   if(cal)agenda=await api.agenda();
   paintCal();
 }
 calb.onclick=async()=>setCal(await api.cal(id));
+let tRef;refb.onclick=()=>{api.refrescar();refb.classList.add('spin');clearTimeout(tRef);tRef=setTimeout(()=>refb.classList.remove('spin'),8000)}; // la agenda nueva llega por onAgenda cuando el Calendario la escribe
 api.onAgenda(ev=>{agenda=ev;paintCal()});
+// letra e interlineado: valen para todas las notas (main los guarda y los reparte); se aplican como variables CSS
+const estPon=({fs,lh})=>{const s=document.documentElement.style;s.setProperty('--fs',fs+'px');s.setProperty('--lh',lh);fsr.value=fs;lhr.value=lh;fsv.textContent=fs+'px';lhv.textContent=(+lh).toFixed(2)};
+const estEnvia=()=>{estPon({fs:+fsr.value,lh:+lhr.value});api.setEstilo(+fsr.value,+lhr.value)};
+api.estilo().then(estPon);api.onEstilo(estPon);
+fsr.oninput=lhr.oninput=estEnvia;
+est.onclick=e=>{const b=e.target.closest('button[data-r]');if(!b)return;const r=document.getElementById(b.dataset.r);b.dataset.m=='-'?r.stepDown():r.stepUp();estEnvia()}; // − / +: un paso del deslizador (1 px · 0,05)
+estr.onclick=()=>{fsr.value=15;lhr.value=1.35;estEnvia()};
+szb.onclick=()=>{const v=est.style.display!='flex';est.style.display=v?'flex':'none';szb.classList.toggle('on',v)};
 hbtn.onclick=toggleHelp;
 del.onclick=()=>api.del(id);
 

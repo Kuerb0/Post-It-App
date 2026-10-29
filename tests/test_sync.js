@@ -80,4 +80,9 @@ assert.deepStrictEqual(v.map(x => [x.a.txt, x.suena]), [['Dentista', true], ['Vi
 assert.deepStrictEqual(S.alarmasVencidas(conAlarmas, new Set(v.map(x => x.clave)), ahoraA), []);
 assert.deepStrictEqual(S.lineas('<div>Dentista <span class="alarm past" contenteditable="false" data-t="2026-10-26T18:30">⏰ hoy 18:30</span>&nbsp;</div>').map(x => x.texto), ['Dentista']);
 assert.deepStrictEqual(ext('<div>Lunes 26/10</div><div>Dentista <span class="alarm" data-t="2026-10-26T18:30">⏰ hoy 18:30</span></div>'), []);
+// --- aviso al Calendario (botón ⟳): deja refrescar-<equipo>.txt en la carpeta compartida, y no se confunde con la agenda ni las notas
+const carpetaR = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-refresco-'));
+S.pedirRefresco(carpetaR, 'PCX');
+assert.deepStrictEqual(fs.readdirSync(carpetaR), ['refrescar-PCX.txt']);
+assert.deepStrictEqual(S.leerAgenda(carpetaR, hoy, 7), []);
 console.log('TEST OK');

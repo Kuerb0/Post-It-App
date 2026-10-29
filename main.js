@@ -189,6 +189,19 @@ ipcMain.handle('cal',(e,id)=>{ // unir con el Calendario: sus tareas bajo una fe
   const n=find(id);n.cal=n.cal?undefined:true;save();return !!n.cal;
 });
 ipcMain.handle('agenda',()=>eventosNotas());
+ipcMain.handle('estilo',()=>({fs:cfg.tam||15,lh:cfg.lh||1.35})); // letra (px) e interlineado: globales, valen para todas las notas
+let tEst;
+ipcMain.on('estilo',(e,f,l)=>{ // deslizadores: se reparte al momento al resto de notas y se guarda con un respiro
+  const est={fs:Math.min(30,Math.max(9,+f||15)),lh:Math.min(2.6,Math.max(1,+l||1.35))};
+  cfg.tam=est.fs;cfg.lh=est.lh;
+  for(const w of wins.values())if(!w.isDestroyed()&&w.webContents!==e.sender)w.webContents.send('estilo',est);
+  clearTimeout(tEst);tEst=setTimeout(guardarCfg,500);
+});
+ipcMain.handle('refrescar',()=>{ // botón ⟳: el Calendario relee Outlook y reescribe la agenda; aquí se relee ya y se vigila cada 2 s (30 s máx.) en vez de cada 15
+  if(carpeta)try{S.pedirRefresco(carpeta)}catch(err){console.error('refrescar',err)}
+  firma='';refrescarAgenda();
+  let n=0;const t=setInterval(()=>{refrescarAgenda();if(++n>=15)clearInterval(t)},2000);
+});
 ipcMain.on('hechoCal',(e,id,k,v)=>{ // casilla de un evento del Calendario pintado en la nota; k = id del evento (uid@inicio)
   const n=find(id);if(!n)return;
   const s=new Set(n.calHechos),lim=S.iso(new Date(Date.now()-60*864e5));
