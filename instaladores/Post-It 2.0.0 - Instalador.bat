@@ -554,7 +554,7 @@ function Probar-Ics {
     $lbIcs.Text = 'Probando...'; $lbIcs.ForeColor = $cGris; [Windows.Forms.Application]::DoEvents()
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-        $rq = [Net.WebRequest]::Create($u -replace '^webcal:', 'https:'); $rq.Timeout = 15000; $rs = $rq.GetResponse()
+        $rq = [Net.WebRequest]::Create(($u -replace '^webcal:', 'https:')); $rq.Timeout = 15000; $rs = $rq.GetResponse()
         $t = (New-Object IO.StreamReader($rs.GetResponseStream())).ReadToEnd(); $rs.Close()
         if ($t -notmatch 'BEGIN:VCALENDAR') { throw 'La dirección responde, pero no es un calendario ICS.' }
         $n = ([regex]::Matches($t, 'BEGIN:VEVENT')).Count
