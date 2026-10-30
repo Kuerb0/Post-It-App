@@ -13,6 +13,6 @@ Notas adhesivas de escritorio para Windows (Electron). Se pueden minimizar con `
 **Letra:** el botón Tт de la barra ajusta el tamaño de la letra y el interlineado de todas las notas (con − y + para afinar). Las cabeceras de fecha (`Lunes 02/11`) salen siempre en negrita.
 
 - **Instalar:** descarga el instalador en [descargas → Post-It](https://github.com/Kuerb0/descargas/releases?q=postit). Se instala encima de la versión anterior y conserva tus notas.
-- **Pruebas:** `node tests/test_sync.js` y `node tests/test_eventos.js` (deben acabar en `TEST OK`). El lector de Outlook (`outlook.ps1`) solo se puede probar con Outlook clásico abierto.
+- **Pruebas:** `node tests/test_sync.js`, `node tests/test_eventos.js` y, tras generar el instalador, `powershell -File tests	est_instalador.ps1` (instala y actualiza en una carpeta temporal; deben acabar en `TEST OK`). El lector de Outlook (`outlook.ps1`) solo se puede probar con Outlook clásico abierto.
 
 Forma parte del [portal](https://kuerb0.github.io/portal/).

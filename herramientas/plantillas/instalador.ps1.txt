@@ -481,7 +481,7 @@ if ($App.SinArranque) { $ckArr.Visible = $false }      # la propia app se regist
 
 # pagina 5 (Post-It): sincronizar las notas entre equipos. Carpeta propia, distinta de la de instalacion: el programa es local, las notas viajan.
 function Carpeta-OneDrive {      # la carpeta que ya usaba una version anterior, o «Carpeta de Sincronización» dentro del OneDrive de este equipo
-    try { $c = Get-Content -LiteralPath (Join-Path $env:APPDATA 'post-it\sync.json') -Raw -Encoding UTF8 | ConvertFrom-Json; if ($c.sync -and (Test-Path -LiteralPath $c.sync)) { return $c.sync }; if ($c.notas) { return (Split-Path -Parent $c.notas) } } catch { }
+    try { $c = Get-Content -LiteralPath (Join-Path $env:APPDATA 'post-it\sync.json') -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json; if ($c.sync -and (Test-Path -LiteralPath $c.sync)) { return $c.sync }; if ($c.notas) { return (Split-Path -Parent $c.notas) } } catch { }
     foreach ($r in @($env:OneDriveConsumer, $env:OneDrive, $env:OneDriveCommercial, (Join-Path $env:USERPROFILE 'OneDrive'))) { if ($r -and (Test-Path -LiteralPath $r)) { return (Join-Path $r 'Carpeta de Sincronización') } }
     return $null
 }
@@ -559,7 +559,7 @@ $bCopiar.Add_Click({ try { Set-Clipboard -Value (Get-Content -LiteralPath $LogPa
 $bAtras = Boton '< Atrás' 328; $bSig = Boton 'Siguiente >' 468; $bCan = Boton 'Cancelar' 632
 foreach ($b in $bAtras, $bSig, $bCan) { $b.Anchor = 'Bottom,Right' }
 $f.Controls.AddRange(@($bAtras, $bSig, $bCan))
-$estado = @{ pagina = 1; pyw = $null; trabajando = $false; pct = 0 }
+$estado = @{ pagina = 1; pyw = $null; trabajando = $false; pct = 0; accion = 'Instalar' }
 $pista.Add_Resize({ $relleno.Size = New-Object Drawing.Size([int]($pista.Width * $estado.pct / 100), $pista.Height) })
 
 # escalado: cada control guarda su tamano de diseno; al cambiar la ventana todo se redimensiona por igual (letra incluida) y se centra
@@ -595,8 +595,18 @@ function Ir($n) {
     $bAtras.Visible = ($n -in 2, 5, 6); $bCan.Visible = ($n -in 1, 2, 3, 5, 6); $bSig.Enabled = ($n -ne 3)
     if ($n -eq 2) { Detectar }
     if ($n -eq 5) { Detectar-Sync }
+    if ($n -eq 6 -and -not $tbIcs.Text -and $Opc.SyncDir) {      # el que ya hay guardado en las notas sincronizadas (el mas reciente)
+        try {
+            $mejor = $null
+            foreach ($f in Get-ChildItem -LiteralPath $Opc.SyncDir -Filter 'postit-*.json' -ErrorAction SilentlyContinue) {
+                $j = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+                if ($j.ajustes -and $j.ajustes.ics -and (-not $mejor -or $j.ajustes.mod -gt $mejor.mod)) { $mejor = $j.ajustes }
+            }
+            if ($mejor) { $tbIcs.Text = $mejor.ics }
+        } catch { }
+    }
     $ultima = $(if ($App.ConSync) { 6 } else { 2 })
-    $bSig.Text = if ($n -eq $ultima) { 'Instalar' } elseif ($n -eq 4) { 'Terminar' } else { 'Siguiente >' }
+    $bSig.Text = if ($n -eq $ultima) { $estado.accion } elseif ($n -eq 4) { 'Terminar' } else { 'Siguiente >' }
 }
 for ($k = 0; $k -lt $Pasos.Count; $k++) { Pintar-Paso $k 'pend' }
 
@@ -611,12 +621,18 @@ function Aviso-Unidad($d) {      # texto de aviso si la carpeta esta en una unid
     return $null
 }
 function Detectar {
-    $d = $tbDir.Text.Trim(); $txt = ''; $col = $cGris
+    $d = $tbDir.Text.Trim(); $txt = ''; $col = $cGris; $estado.accion = 'Instalar'
     try {
         if ($d -and [IO.Path]::IsPathRooted($d)) {
             $v = Version-De $d
+            $estado.accion = 'Instalar'
+            if ($v) { try { $estado.accion = $(if ([version]$v -lt [version]$App.Version) { 'Actualizar' } elseif ([version]$v -eq [version]$App.Version) { 'Reinstalar' } else { 'Instalar' }) } catch { $estado.accion = 'Reinstalar' } }
             if ($v) {
-                $txt = if ($v -eq $App.Version) { "Ya hay $($App.Nombre) $v en esta carpeta: se reinstalará. Se guarda una copia de la actual en anteriores\." } else { "Ya hay $($App.Nombre) $v en esta carpeta: se actualizará a $($App.Version). Se guarda una copia de la actual en anteriores\." }
+                $txt = switch ($estado.accion) {
+                    'Reinstalar' { "Ya hay $($App.Nombre) $v en esta carpeta: el botón final será «Reinstalar». Se guarda una copia de la actual en anteriores\ y tus notas y ajustes se conservan." }
+                    'Actualizar' { "Ya hay $($App.Nombre) $v en esta carpeta: el botón final será «Actualizar» a la $($App.Version). Se guarda una copia de la actual en anteriores\ y tus notas y ajustes se conservan." }
+                    default { "Ya hay $($App.Nombre) $v en esta carpeta, más nueva que esta ($($App.Version)). Se instalará igualmente la $($App.Version) y se guarda una copia de la actual en anteriores\." }
+                }
                 $col = $cOro
             } elseif (Test-Path -LiteralPath (Join-Path $d '.git')) { $txt = 'Carpeta con git (desarrollo): los ficheros del programa se sobrescribirán con los del instalador.'; $col = $cOro }
             elseif (Test-Path -LiteralPath $d) { $txt = if (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1) { 'La carpeta tiene otros ficheros: no se tocan.' } else { 'Carpeta vacía: instalación nueva.' }; $col = $cVerde }
@@ -645,7 +661,7 @@ function Terminar-Pagina($ok, $motivo) {
     $bCan.Enabled = $true; $bCan.Text = 'Cancelar'
     $bCarp.Visible = [bool]$ok; $bGuia.Visible = [bool]$ok
     if ($ok) {
-        $lbFin.Text = '[ OK ]  Instalación terminada'; $lbFin.ForeColor = $cVerde
+        $lbFin.Text = '[ OK ]  ' + $(switch ($estado.accion) { 'Actualizar' { 'Actualización terminada' } 'Reinstalar' { 'Reinstalación terminada' } default { 'Instalación terminada' } }); $lbFin.ForeColor = $cVerde
         $lbFin2.Text = "$($App.Nombre) $($App.Version) está instalado en:`r`n  $($Opc.Dest)`r`n`r`nPuedes desinstalarlo desde «Aplicaciones» de Windows."; $ckAbrir.Visible = $true
         $ckAbrir.Text = $(if ($App.PrimeraVez -and (Lanzador-Final) -like "*$($App.PrimeraVez)") { 'Abrir el asistente de configuración al terminar' } else { "Abrir $($App.Nombre) al terminar" })
     } else {
