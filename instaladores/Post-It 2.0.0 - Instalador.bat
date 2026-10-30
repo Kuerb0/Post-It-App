@@ -501,7 +501,7 @@ $tbDir.BackColor = $cPanel; $tbDir.ForeColor = $cBlanco; $tbDir.BorderStyle = 'F
 $bExam = Boton 'Examinar...' 604; $bExam.Location = New-Object Drawing.Point(604, 34); $bExam.Size = New-Object Drawing.Size(130, 30); $bExam.Anchor = 'Top,Right'; $p2.Controls.Add($bExam)
 $bExam.Add_Click({ $d = New-Object Windows.Forms.FolderBrowserDialog; $d.SelectedPath = $tbDir.Text; if ($d.ShowDialog() -eq 'OK') { $tbDir.Text = $d.SelectedPath } })
 $p2.Controls.Add((Etiqueta 'Elige una carpeta donde puedas escribir (una de OneDrive también vale).' 4 70 730 20 $cGris (& $fMono 9 'Italic')))
-$lbPrev = Etiqueta '' 4 92 730 40 $cGris (& $fMono 9.5 'Regular'); $p2.Controls.Add($lbPrev)
+$lbPrev = Etiqueta '' 4 92 730 50 $cGris (& $fMono 9.5 'Regular'); $p2.Controls.Add($lbPrev)
 $p2.Controls.Add((Etiqueta 'Accesos directos' 4 142 730 24 $cBlanco (& $fMono 11 'Bold')))
 function Casilla($texto, $y, $marcada) { $c = New-Object Windows.Forms.CheckBox; $c.Text = $texto; $c.Location = New-Object Drawing.Point(8, $y); $c.Size = New-Object Drawing.Size(720, 26); $c.Checked = $marcada; $c.ForeColor = $cBlanco; $c.FlatStyle = 'Flat'; $c.Cursor = 'Hand'; $p2.Controls.Add($c); return $c }
 $ckEsc = Casilla 'Acceso directo en el Escritorio' 172 $true
@@ -630,6 +630,16 @@ function Ir($n) {
 }
 for ($k = 0; $k -lt $Pasos.Count; $k++) { Pintar-Paso $k 'pend' }
 
+function Aviso-Unidad($d) {      # texto de aviso si la carpeta esta en una unidad que puede no estar al abrir el programa (USB, tarjeta, red, optica), o $null
+    try {
+        $raiz = [IO.Path]::GetPathRoot($d)
+        if ($raiz -like '\\*') { return "AVISO: es una carpeta de red ($raiz): si la red no está disponible al abrir $($App.Nombre), no arrancará. Mejor una unidad del propio equipo." }
+        $di = New-Object IO.DriveInfo($raiz)
+        $tipo = switch ($di.DriveType) { 'Removable' { 'extraíble (USB o tarjeta)' } 'Network' { 'de red' } 'CDRom' { 'óptica' } 'NoRootDirectory' { 'sin letra válida' } default { $null } }
+        if ($tipo) { return "AVISO: la unidad $($di.Name) es $tipo. Si no está conectada al abrir $($App.Nombre), no arrancará (Windows dirá que no encuentra $($di.Name.TrimEnd('\')))." }
+    } catch { }
+    return $null
+}
 function Detectar {
     $d = $tbDir.Text.Trim(); $txt = ''; $col = $cGris
     try {
@@ -642,6 +652,7 @@ function Detectar {
             elseif (Test-Path -LiteralPath $d) { $txt = if (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1) { 'La carpeta tiene otros ficheros: no se tocan.' } else { 'Carpeta vacía: instalación nueva.' }; $col = $cVerde }
             else { $txt = 'La carpeta no existe: se creará.'; $col = $cVerde }
         }
+        $av = Aviso-Unidad $d; if ($av) { $txt = $av + "`r`n" + $txt; $col = $cOro }
     } catch { }
     $lbPrev.Text = $txt; $lbPrev.ForeColor = $col
 }
@@ -1155,7 +1166,7 @@ app.whenReady().then(()=>{
 
 });
 :::END
-:::BEGIN sync.js|text|a4da60c2c32448c5f1dc1b4d7dc31ae9efce73feb8fec7e133d4dc0da62f6ec5
+:::BEGIN sync.js|text|9112b91072a376cd716119153d6aa0801900ee08f74803c3ae49403ebf62f8d1
 // Sincronización entre equipos y enlace con el Calendario por una carpeta compartida (la de OneDrive), sin servidor ni cuenta.
 //  · notas-<EQUIPO>.json  lo escribe Post-It: las líneas de las notas que llevan hora (se ven en el Calendario)
 //  · agenda-<EQUIPO>.json lo escribe el Calendario: sus próximos eventos (salen bajo cada fecha de las notas unidas)
@@ -1273,7 +1284,7 @@ function fusionar(archivos) {
   for (const f of archivos) {
     for (const n of f.notas || []) { const m = mejor.get(n.id); if (!m || (n.mod || 0) > (m.mod || 0)) mejor.set(n.id, n); }
     for (const b of f.borradas || []) if (!borr.has(b.id) || b.mod > borr.get(b.id)) borr.set(b.id, b.mod);
-    if (f.ajustes && (f.ajustes.mod || 0) > ajustes.mod) ajustes = f.ajustes;
+    if (f.ajustes && f.ajustes.mod > ajustes.mod) ajustes = f.ajustes;      // sin mod (vacío, como el de memoria al arrancar) no cuenta
     if (f.colores) { Object.assign(colores.categorias, f.colores.categorias); Object.assign(colores.titulos, f.colores.titulos); }
   }
   const notas = [], borradas = [];

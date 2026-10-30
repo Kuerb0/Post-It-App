@@ -115,7 +115,7 @@ function fusionar(archivos) {
   for (const f of archivos) {
     for (const n of f.notas || []) { const m = mejor.get(n.id); if (!m || (n.mod || 0) > (m.mod || 0)) mejor.set(n.id, n); }
     for (const b of f.borradas || []) if (!borr.has(b.id) || b.mod > borr.get(b.id)) borr.set(b.id, b.mod);
-    if (f.ajustes && (f.ajustes.mod || 0) > ajustes.mod) ajustes = f.ajustes;
+    if (f.ajustes && f.ajustes.mod > ajustes.mod) ajustes = f.ajustes;      // sin mod (vacío, como el de memoria al arrancar) no cuenta
     if (f.colores) { Object.assign(colores.categorias, f.colores.categorias); Object.assign(colores.titulos, f.colores.titulos); }
   }
   const notas = [], borradas = [];

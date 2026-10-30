@@ -95,6 +95,9 @@ S.escribirSync(sd, { notas: [], ajustes: { ics: 'https://viejo', mod: 10 }, colo
 f = S.fusionar(S.leerSync(sd));
 assert.deepStrictEqual([f.ajustes.ics, f.colores.categorias.Salud, f.colores.titulos.cita], ['https://nuevo', '#e5533d', '#3a86ff']);
 assert.ok(!S.leerSync(sd, { menos: S.ficheroEquipo(sd, 'C') }).some(x => x.ajustes && x.ajustes.ics === 'https://nuevo'));
+// al arrancar, la memoria va vacía (sin ajustes) y delante de los ficheros: no debe taparlos
+const alArrancar = S.fusionar([{ notas: [], borradas: [], ajustes: {}, colores: { categorias: {}, titulos: {} } }, ...S.leerSync(sd)]);
+assert.strictEqual(alArrancar.ajustes.ics, 'https://nuevo');
 // la firma cambia cuando alguien guarda
 const propio = S.ficheroEquipo(sd, 'E'), f0 = S.firmaSync(sd, propio);
 S.escribirSync(sd, { notas: [{ id: 'z', mod: 1 }] }, 'E'); assert.strictEqual(S.firmaSync(sd, propio), f0);       // lo que escribo yo no cuenta
