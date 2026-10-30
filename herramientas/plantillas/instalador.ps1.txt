@@ -46,7 +46,8 @@ $w = New-Object -ComObject WScript.Shell
 foreach ($c in 'Desktop', 'Programs', 'Startup') { $f = Join-Path $w.SpecialFolders($c) "$Acceso.lnk"; if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force } }
 Remove-Item -Path $Reg -Recurse -Force -ErrorAction SilentlyContinue
 if (-not $git -and (Test-Path -LiteralPath $Dir)) {
-    if ($ConDatos) { Remove-Item -LiteralPath $Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    $esRaiz = ([IO.Path]::GetPathRoot($Dir).TrimEnd('\') -ieq $Dir.TrimEnd('\'))      # instalado en la raiz de una unidad (version antigua del asistente): solo se quitan los ficheros del programa, jamas toda la unidad
+    if ($ConDatos -and -not $esRaiz) { Remove-Item -LiteralPath $Dir -Recurse -Force -ErrorAction SilentlyContinue }
     else {
         foreach ($p in $Programa + 'python') { $r = Join-Path $Dir $p; if (Test-Path -LiteralPath $r) { Remove-Item -LiteralPath $r -Recurse -Force -ErrorAction SilentlyContinue } }
         foreach ($n in 'carpeta.ico', 'desktop.ini') { $r = Join-Path $Dir $n; if (Test-Path -LiteralPath $r) { & attrib -s -h -r $r | Out-Null; Remove-Item -LiteralPath $r -Force -ErrorAction SilentlyContinue } }
@@ -302,6 +303,15 @@ $Trabajo = {
             $ex = Join-Path $dest '.git\info\exclude'
             if (Test-Path -LiteralPath (Split-Path -Parent $ex)) { foreach ($x in 'carpeta.ico', 'desktop.ini') { if (-not (Test-Path -LiteralPath $ex) -or -not (Select-String -LiteralPath $ex -SimpleMatch -Pattern $x -Quiet)) { Add-Content -LiteralPath $ex -Value $x } } }
             Log 'Icono de la carpeta: carpeta.ico + desktop.ini'
+            # accesos de versiones anteriores que ya no apuntan a nada (Windows diria «no encuentra D:\...»): se quitan; los que funcionan no se tocan
+            $nombreRe = '^' + [regex]::Escape($App.Nombre).Replace('-', '-?') + '(\s*\(\d+\))?$'
+            foreach ($cf in 'Desktop', 'Programs', 'Startup') {
+                $carp = $w.SpecialFolders($cf); if (-not $carp) { continue }
+                foreach ($lnk in @(Get-ChildItem -LiteralPath $carp -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -match $nombreRe })) {
+                    $tg = $w.CreateShortcut($lnk.FullName).TargetPath
+                    if ($tg -and -not (Test-Path -LiteralPath $tg)) { Remove-Item -LiteralPath $lnk.FullName -Force; Log "Acceso roto quitado: $($lnk.Name) (apuntaba a $tg)" }
+                }
+            }
             Paso 5 'ok'
         }
         Prog 92; Cancelado
@@ -339,7 +349,7 @@ $Trabajo = {
             foreach ($ent in @(Get-ChildItem -Path $un -ErrorAction SilentlyContinue)) {
                 if ($ent.PSChildName -eq $App.Nombre) { continue }
                 $p = Get-ItemProperty -Path $ent.PSPath -ErrorAction SilentlyContinue
-                if ($p.Publisher -eq 'Kuerb0' -and $p.DisplayName -like "$($App.Nombre)*" -and $p.InstallLocation -and ($p.InstallLocation.TrimEnd('\') -ieq $dest.TrimEnd('\'))) { Remove-Item -Path $ent.PSPath -Recurse -Force; Log "Entrada antigua quitada de Aplicaciones: $($ent.PSChildName) ($($p.DisplayName))" }
+                if ($p.Publisher -eq 'Kuerb0' -and $p.DisplayName -like "$($App.Nombre)*" -and $p.InstallLocation -and (($p.InstallLocation.TrimEnd('\') -ieq $dest.TrimEnd('\')) -or -not (Test-Path -LiteralPath $p.InstallLocation))) { Remove-Item -Path $ent.PSPath -Recurse -Force; Log "Entrada antigua quitada de Aplicaciones: $($ent.PSChildName) ($($p.DisplayName))" }
             }
             Log "Desinstalador: $dd"; Paso 6 'ok'
         }
@@ -362,13 +372,17 @@ function Version-De($dir) {      # la version ya instalada en esa carpeta (o $nu
     return $t.Trim()
 }
 
+function Normalizar-Destino($d) {      # la raiz de una unidad (D:\) o de un recurso de red no sirve de carpeta del programa: se usa una subcarpeta con el nombre del programa
+    try { if ($d -and [IO.Path]::IsPathRooted($d)) { $r = [IO.Path]::GetPathRoot($d); if ($d.TrimEnd('\') -ieq $r.TrimEnd('\')) { return (Join-Path $r $App.Nombre) } } } catch { }
+    return $d
+}
 function Carpeta-Por-Defecto {
     if ($Destino) { return $Destino }
     if ((Split-Path -Leaf (Split-Path -Parent $Origen)) -eq 'instaladores') { return $DirPorDefecto }     # dentro de un repositorio: la carpeta del programa
     try { $ya = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$($App.Nombre)" -ErrorAction Stop).InstallLocation; if ($ya -and (Test-Path -LiteralPath $ya)) { return $ya } } catch { }
     return (Join-Path $env:LOCALAPPDATA "Programs\$($App.Nombre)")        # no la carpeta de Descargas desde donde se ejecuta el .bat
 }
-$dir0 = Carpeta-Por-Defecto
+$dir0 = Normalizar-Destino (Carpeta-Por-Defecto)
 $LogPath = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\instalacion.log"
 New-Item -ItemType Directory -Path (Split-Path -Parent $LogPath) -Force | Out-Null; Set-Content -LiteralPath $LogPath -Value '' -Encoding UTF8
 $Opc = @{ ForzarDescarga = [bool]$ForzarDescarga; Dest = $dir0; Escritorio = $true; Inicio = $true; Arranque = $false; SyncDir = $SyncDir; TocarSync = $false; Ics = $Ics; SinRed = [bool]$SinRed; SinAccesos = [bool]$SinAccesos; Log = $LogPath; Cancelar = $false }
@@ -456,7 +470,7 @@ $tbDir = New-Object Windows.Forms.TextBox; $tbDir.Location = New-Object Drawing.
 $tbDir.BackColor = $cPanel; $tbDir.ForeColor = $cBlanco; $tbDir.BorderStyle = 'FixedSingle'; $tbDir.Anchor = 'Top,Left,Right'; $p2.Controls.Add($tbDir)
 $bExam = Boton 'Examinar...' 604; $bExam.Location = New-Object Drawing.Point(604, 34); $bExam.Size = New-Object Drawing.Size(130, 30); $bExam.Anchor = 'Top,Right'; $p2.Controls.Add($bExam)
 $bExam.Add_Click({ $d = New-Object Windows.Forms.FolderBrowserDialog; $d.SelectedPath = $tbDir.Text; if ($d.ShowDialog() -eq 'OK') { $tbDir.Text = $d.SelectedPath } })
-$p2.Controls.Add((Etiqueta 'Elige una carpeta donde puedas escribir (una de OneDrive también vale).' 4 70 730 20 $cGris (& $fMono 9 'Italic')))
+$p2.Controls.Add((Etiqueta 'Aquí va solo el programa (~0,5 MB); el motor Electron (~150 MB) se guarda en tu perfil.' 4 70 730 20 $cGris (& $fMono 9 'Italic')))
 $lbPrev = Etiqueta '' 4 92 730 50 $cGris (& $fMono 9.5 'Regular'); $p2.Controls.Add($lbPrev)
 $p2.Controls.Add((Etiqueta 'Accesos directos' 4 142 730 24 $cBlanco (& $fMono 11 'Bold')))
 function Casilla($texto, $y, $marcada) { $c = New-Object Windows.Forms.CheckBox; $c.Text = $texto; $c.Location = New-Object Drawing.Point(8, $y); $c.Size = New-Object Drawing.Size(720, 26); $c.Checked = $marcada; $c.ForeColor = $cBlanco; $c.FlatStyle = 'Flat'; $c.Cursor = 'Hand'; $p2.Controls.Add($c); return $c }
@@ -608,6 +622,7 @@ function Detectar {
             elseif (Test-Path -LiteralPath $d) { $txt = if (Get-ChildItem -LiteralPath $d -Force | Select-Object -First 1) { 'La carpeta tiene otros ficheros: no se tocan.' } else { 'Carpeta vacía: instalación nueva.' }; $col = $cVerde }
             else { $txt = 'La carpeta no existe: se creará.'; $col = $cVerde }
         }
+        $d2 = Normalizar-Destino $d; if ($d2 -ne $d) { $txt = "Es la raíz de la unidad: se instalará en una subcarpeta ($d2) para no mezclarse con tus ficheros."; $col = $cOro }
         $av = Aviso-Unidad $d; if ($av) { $txt = $av + "`r`n" + $txt; $col = $cOro }
     } catch { }
     $lbPrev.Text = $txt; $lbPrev.ForeColor = $col
@@ -669,6 +684,8 @@ $bSig.Add_Click({
         2 {
             $d = $tbDir.Text.Trim()
             if (-not $d -or -not [IO.Path]::IsPathRooted($d)) { [void][Windows.Forms.MessageBox]::Show('Escribe o elige una carpeta (ruta completa).', 'Carpeta', 'OK', 'Warning'); return }
+            $d2 = Normalizar-Destino $d
+            if ($d2 -ne $d) { [void][Windows.Forms.MessageBox]::Show("Has elegido la raíz de una unidad ($d). El programa se instalará en una subcarpeta para no mezclarse con tus ficheros:`r`n`r`n$d2", 'Carpeta de instalación', 'OK', 'Information'); $d = $d2; $tbDir.Text = $d2 }
             $Opc.Dest = $d; $Opc.Escritorio = $ckEsc.Checked; $Opc.Inicio = $ckIni.Checked; $Opc.Arranque = $ckArr.Checked
             if ($App.ConSync) { Ir 5 } else { $estado.trabajando = $true; Ir 3; Lanzar-Trabajo }
         }
