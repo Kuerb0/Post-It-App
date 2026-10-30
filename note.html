@@ -577,8 +577,8 @@ function paintCal(){
     let at=h;
     for(const e of agenda.filter(e=>e.inicio.slice(0,10)==day(d))){
       const x=document.createElement('div');x.className='cal';x.contentEditable=false;x.dataset.k=e.id;
-      const c=/^#[0-9a-f]{6}$/i.test(e.color||'')?e.color:null; // color de la etiqueta: el icono 📅 (emoji, no se tiñe) pasa a un SVG de ese color
-      const ico=c?'<svg width=14 height=14 viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:3px"><rect x=1 y=2 width=14 height=13 rx=3 fill="'+c+'"/><rect x=3 y=5 width=10 height=1.5 rx=.75 fill="#fff"/><g fill="#fff"><rect x=3.5 y=8.5 width=2 height=2/><rect x=7 y=8.5 width=2 height=2/><rect x=10.5 y=8.5 width=2 height=2/><rect x=3.5 y=11.5 width=2 height=2/><rect x=7 y=11.5 width=2 height=2/></g><rect x=4 y=.75 width=1.6 height=3 rx=.8 fill="'+c+'"/><rect x=10.4 y=.75 width=1.6 height=3 rx=.8 fill="'+c+'"/></svg>':'📅 ';
+      const c=/^#[0-9a-f]{6}$/i.test(e.color||'')?e.color:null; // color de la etiqueta: el icono 📅 (emoji, no se tiñe) pasa a un calendario «banda» (cabecera de ese color, hoja blanca)
+      const ico=c?'<svg width=15 height=15 viewBox="0 0 16 16" style="width:15px;height:15px;stroke:none;vertical-align:-3px;margin-right:3px"><rect x=1.8 y=3 width=12.4 height=11.2 rx=2 fill="#fff" stroke="'+c+'" stroke-width=1.2 /><path d="M1.8 5.2A2.2 2.2 0 0 1 4 3h8a2.2 2.2 0 0 1 2.2 2.2v2.2H1.8z" fill="'+c+'"/><path d="M5 1.5v2.8M11 1.5v2.8" stroke="'+c+'" stroke-width=1.5 stroke-linecap=round /></svg>':'📅 ';
       x.innerHTML='<input type=checkbox'+(hechos.has(e.id)?' checked':'')+'>'+ico+(e.todo_dia?'':esc(e.inicio.slice(11,16))+' ')+esc(e.titulo);
       at.after(x);at=x;
     }
