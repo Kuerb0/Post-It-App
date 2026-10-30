@@ -5,19 +5,21 @@
 #   -SinRed       no descarga Python ni instala librerias      -SinAccesos   ni accesos directos ni desinstalador
 #   -NombreAcceso <texto>   nombre de los accesos directos (por defecto, el del programa)
 #   -ForzarDescarga         (apps Electron) descarga Electron aunque ya haya uno instalado; para probar
+#   -SyncDir <carpeta>      (Post-It) sincroniza las notas en esa carpeta (sin esto, en silencio no hay sincronizacion)    -Ics <enlace>   enlace ICS del calendario
 #   -Captura <carpeta>      guarda una imagen de cada pagina de la ventana y sale
 #   -Origen <ruta>          (lo pone el .exe) donde esta el instalador que el usuario ha descargado; si no, es el propio -Self
 #   -LimpiarTemp            (lo pone el .bat o el .exe) borra al terminar la carpeta temporal donde esta este script
 param(
     [string]$Self, [string]$DirPorDefecto, [string]$Destino,
     [switch]$Silencioso, [switch]$SinRed, [switch]$SinAccesos,
-    [string]$NombreAcceso, [string]$Captura, [switch]$LimpiarTemp, [string]$Origen, [switch]$ForzarDescarga)
+    [string]$NombreAcceso, [string]$Captura, [switch]$LimpiarTemp, [string]$Origen, [switch]$ForzarDescarga,
+    [string]$SyncDir, [string]$Ics)
 
 $App = @{ Nombre = '@@NOMBRE@@'; Version = '@@VERSION@@'; Comprueba = '@@COMPRUEBA@@'; Lanzador = '@@LANZADOR@@'
           Reqs = '@@REQS@@'; Icono = '@@ICONO@@'; Imports = '@@IMPORTS@@'; PipExtra = '@@PIP_EXTRA@@'; ExtraImport = '@@EXTRA_IMPORT@@'
           Datos = '@@DATOS@@'; Carpetas = @(@@CARPETAS@@); Programa = @(@@PROGRAMA@@)
           VersionFile = '@@VERSION_FILE@@'; VersionRe = '@@VERSION_RE@@'; PyMin = '@@PY_MIN@@'; PyImport = '@@PY_IMPORT@@'; PipPost = '@@PIP_POST@@'
-          PrimeraVez = '@@PRIMERA_VEZ@@'; PrimeraSenal = '@@PRIMERA_SENAL@@'; Tipo = '@@TIPO@@'; ElectronVersion = '@@ELECTRON_VERSION@@'; ElectronAntiguo = '@@ELECTRON_ANTIGUO@@'; SinArranque = '@@SIN_ARRANQUE@@'; CarpetaAntigua = '@@CARPETA_ANTIGUA@@'; PortalUrl = '@@PORTAL_URL@@'; PortalPrefijo = '@@PORTAL_PREFIJO@@' }
+          PrimeraVez = '@@PRIMERA_VEZ@@'; PrimeraSenal = '@@PRIMERA_SENAL@@'; Tipo = '@@TIPO@@'; ElectronVersion = '@@ELECTRON_VERSION@@'; ElectronAntiguo = '@@ELECTRON_ANTIGUO@@'; SinArranque = '@@SIN_ARRANQUE@@'; CarpetaAntigua = '@@CARPETA_ANTIGUA@@'; PortalUrl = '@@PORTAL_URL@@'; PortalPrefijo = '@@PORTAL_PREFIJO@@'; ConSync = '@@CON_SYNC@@' }
 if (-not $NombreAcceso) { $NombreAcceso = $App.Nombre }
 if (-not $Origen) { $Origen = $Self }
 $CuervoPng = '@@CUERVO_PNG@@'      # el cuervo del banner (lo dibuja generar_instaladores.py a partir de plantillas/cuervo.txt)
@@ -304,6 +306,18 @@ $Trabajo = {
         }
         Prog 92; Cancelado
 
+        # configuracion inicial de la app (Post-It): carpeta de sincronizacion (separada de la de instalacion) y enlace ICS. La app lo recoge al arrancar.
+        if ($App.ConSync) {
+            $ud = Join-Path $env:APPDATA 'post-it'; New-Item -ItemType Directory -Path $ud -Force | Out-Null
+            $cf = Join-Path $ud 'sync.json'; $cfg = @{}
+            if (Test-Path -LiteralPath $cf) { try { (Get-Content -LiteralPath $cf -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $cfg[$_.Name] = $_.Value } } catch { } }
+            if ($O.SyncDir) { New-Item -ItemType Directory -Path $O.SyncDir -Force | Out-Null; $cfg['sync'] = $O.SyncDir; Log "Sincronización de notas: $($O.SyncDir)" }
+            elseif ($O.TocarSync) { $cfg['sync'] = $null; Log 'Sincronización de notas: desactivada (las notas se quedan en este equipo)' }
+            else { Log 'Sincronización de notas: se deja como estaba' }
+            if ($O.Ics) { $cfg['ics'] = $O.Ics; Log 'Enlace ICS del calendario guardado' }
+            [IO.File]::WriteAllText($cf, ($cfg | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false)))
+        }
+
         # 6. desinstalador (en %LOCALAPPDATA%) y entrada en Aplicaciones de Windows
         $paso = 6; Paso 6 'curso'
         if ($O.SinAccesos) { Paso 6 'aviso' }
@@ -357,7 +371,7 @@ function Carpeta-Por-Defecto {
 $dir0 = Carpeta-Por-Defecto
 $LogPath = Join-Path $env:LOCALAPPDATA "Kuerb0\$($App.Nombre)\instalacion.log"
 New-Item -ItemType Directory -Path (Split-Path -Parent $LogPath) -Force | Out-Null; Set-Content -LiteralPath $LogPath -Value '' -Encoding UTF8
-$Opc = @{ ForzarDescarga = [bool]$ForzarDescarga; Dest = $dir0; Escritorio = $true; Inicio = $true; Arranque = $false; SinRed = [bool]$SinRed; SinAccesos = [bool]$SinAccesos; Log = $LogPath; Cancelar = $false }
+$Opc = @{ ForzarDescarga = [bool]$ForzarDescarga; Dest = $dir0; Escritorio = $true; Inicio = $true; Arranque = $false; SyncDir = $SyncDir; TocarSync = $false; Ics = $Ics; SinRed = [bool]$SinRed; SinAccesos = [bool]$SinAccesos; Log = $LogPath; Cancelar = $false }
 $Q = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
 
 function Lanzar-Trabajo {
@@ -422,13 +436,18 @@ $f.Controls.Add((Etiqueta "KUERB0  ·  Without data, you’re just another perso
 $linea = New-Object Windows.Forms.Panel; $linea.Location = New-Object Drawing.Point(18, 202); $linea.Size = New-Object Drawing.Size(744, 2); $linea.BackColor = $cCian; $linea.Anchor = 'Top,Left,Right'; $f.Controls.Add($linea)
 
 function Pagina { $p = New-Object Windows.Forms.Panel; $p.Location = New-Object Drawing.Point(18, 214); $p.Size = New-Object Drawing.Size(744, 300); $p.BackColor = $cFondo; $p.Anchor = 'Top,Left,Right,Bottom'; $p.Visible = $false; $f.Controls.Add($p); return $p }
-$p1 = Pagina; $p2 = Pagina; $p3 = Pagina; $p4 = Pagina
+$p1 = Pagina; $p2 = Pagina; $p3 = Pagina; $p4 = Pagina; $p5 = Pagina; $p6 = Pagina
 
 # pagina 1: bienvenida
 $p1.Controls.Add((Etiqueta "Bienvenido al instalador de $($App.Nombre). Esto va a:" 4 4 730 24 $cBlanco (& $fMono 11 'Bold')))
+if ($App.ConSync) {
+    $p1.Controls.Add((Etiqueta ("  [1] Comprobar tu equipo (espacio, internet, permisos)`r`n  [2] Copiar el programa en la carpeta que elijas`r`n        (si ya hay una versión, se guarda una copia)`r`n  [3] Preparar Electron, el motor de la app (unos 150 MB, una sola vez)`r`n  [4] Crear los accesos directos y dejar un desinstalador`r`n`r`nTe preguntaré dos cosas, las dos opcionales:`r`n  · sincronizar tus notas entre equipos con OneDrive`r`n    (en una carpeta distinta a la del programa)`r`n  · conectar tu calendario (Outlook clásico o enlace ICS)") 4 38 730 190 $cGris $null))
+    $p1.Controls.Add((Etiqueta ("Tus notas no se tocan si ya existen. Nada sale de tu equipo salvo lo que tú`r`nsincronices en TU carpeta de OneDrive.") 4 232 730 40 $cVerde $null))
+} else {
 $p1.Controls.Add((Etiqueta ("  [1] Comprobar tu equipo (espacio, internet, permisos)`r`n  [2] Copiar el programa en la carpeta que elijas`r`n        (si ya hay una versión, se guarda una copia)`r`n  [3] Buscar Python $($App.PyMin)+ o, si no hay, instalar uno EN ESA CARPETA`r`n        (no hace falta ser administrador)`r`n  [4] Instalar las librerías que necesita el programa`r`n  [5] Crear los accesos directos y el icono de la carpeta`r`n  [6] Dejar un desinstalador en «Aplicaciones» de Windows") 4 38 730 150 $cGris $null))
 $p1.Controls.Add((Etiqueta ("Tus datos ($($App.Datos)) no se tocan si ya existen.`r`nTodo se queda en la carpeta elegida. No se manda ni se guarda`r`nningún dato tuyo en ningún sitio ajeno.") 4 196 730 56 $cVerde $null))
-$lbNueva = Etiqueta '' 4 262 730 24 $cOro $null; $lbNueva.Cursor = 'Hand'; $p1.Controls.Add($lbNueva)
+}
+$lbNueva = Etiqueta '' 4 274 730 24 $cOro $null; $lbNueva.Cursor = 'Hand'; $p1.Controls.Add($lbNueva)
 $lbNueva.Add_Click({ Start-Process 'https://kuerb0.github.io/portal/' })
 
 # pagina 2: opciones
@@ -445,6 +464,60 @@ $ckEsc = Casilla 'Acceso directo en el Escritorio' 172 $true
 $ckIni = Casilla 'Entrada en el menú Inicio' 202 $true
 $ckArr = Casilla "Arrancar $($App.Nombre) solo al encender el ordenador" 232 $false
 if ($App.SinArranque) { $ckArr.Visible = $false }      # la propia app se registra para arrancar con Windows
+
+# pagina 5 (Post-It): sincronizar las notas entre equipos. Carpeta propia, distinta de la de instalacion: el programa es local, las notas viajan.
+function Carpeta-OneDrive {      # la carpeta que ya usaba una version anterior, o «Carpeta de Sincronización» dentro del OneDrive de este equipo
+    try { $c = Get-Content -LiteralPath (Join-Path $env:APPDATA 'post-it\sync.json') -Raw -Encoding UTF8 | ConvertFrom-Json; if ($c.sync -and (Test-Path -LiteralPath $c.sync)) { return $c.sync }; if ($c.notas) { return (Split-Path -Parent $c.notas) } } catch { }
+    foreach ($r in @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial, (Join-Path $env:USERPROFILE 'OneDrive'))) { if ($r -and (Test-Path -LiteralPath $r)) { return (Join-Path $r 'Carpeta de Sincronización') } }
+    return $null
+}
+$od0 = Carpeta-OneDrive
+$p5.Controls.Add((Etiqueta 'Sincronizar tus notas entre equipos (opcional)' 4 4 730 24 $cBlanco (& $fMono 11 'Bold')))
+$p5.Controls.Add((Etiqueta ("Post-It puede guardar tus notas en una carpeta de OneDrive para que`r`nlas veas igual en todos tus equipos. Cada equipo escribe su propio`r`nfichero y Post-It los une nota a nota: OneDrive nunca crea copias`r`nen conflicto. Es una carpeta DISTINTA a la del programa, que se queda`r`nen este equipo. En tu otro equipo elige la misma carpeta.") 4 32 730 100 $cGris $null))
+$ckSync = New-Object Windows.Forms.CheckBox; $ckSync.Text = 'Sincronizar mis notas con OneDrive'; $ckSync.Location = New-Object Drawing.Point(8, 138); $ckSync.Size = New-Object Drawing.Size(720, 26)
+$ckSync.Checked = [bool]$od0; $ckSync.ForeColor = $cBlanco; $ckSync.FlatStyle = 'Flat'; $ckSync.Cursor = 'Hand'; $p5.Controls.Add($ckSync)
+$tbSync = New-Object Windows.Forms.TextBox; $tbSync.Location = New-Object Drawing.Point(4, 170); $tbSync.Size = New-Object Drawing.Size(590, 26); $tbSync.Text = $(if ($SyncDir) { $SyncDir } else { $od0 })
+$tbSync.BackColor = $cPanel; $tbSync.ForeColor = $cBlanco; $tbSync.BorderStyle = 'FixedSingle'; $p5.Controls.Add($tbSync)
+$bExamS = Boton 'Examinar...' 604; $bExamS.Location = New-Object Drawing.Point(604, 166); $bExamS.Size = New-Object Drawing.Size(130, 30); $p5.Controls.Add($bExamS)
+$bExamS.Add_Click({ $d = New-Object Windows.Forms.FolderBrowserDialog; $d.Description = 'Carpeta de sincronización (una que sincronice OneDrive)'; if ($tbSync.Text) { $d.SelectedPath = $tbSync.Text }; if ($d.ShowDialog() -eq 'OK') { $tbSync.Text = $d.SelectedPath } })
+$lbSync = Etiqueta '' 4 204 730 60 $cGris (& $fMono 9.5 'Regular'); $p5.Controls.Add($lbSync)
+function Detectar-Sync {
+    $on = $ckSync.Checked; $tbSync.Enabled = $on; $bExamS.Enabled = $on
+    $d = $tbSync.Text.Trim(); $txt = ''; $col = $cGris
+    if (-not $on) { $txt = 'Sin sincronización: tus notas se quedan solo en este equipo. Podrás activarla después desde el icono de la bandeja.' }
+    elseif (-not $d -or -not [IO.Path]::IsPathRooted($d)) { $txt = 'No encuentro OneDrive en este equipo: elige una carpeta que sincronices (o desmarca la casilla).'; $col = $cOro }
+    elseif ($tbDir.Text.Trim().TrimEnd('\') -ieq $d.TrimEnd('\')) { $txt = 'Usa una carpeta distinta a la de instalación: el programa no se sincroniza, solo las notas.'; $col = $cRojo }
+    elseif ((Test-Path -LiteralPath $d) -and (Get-ChildItem -LiteralPath $d -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^(postit-.+|notes.*)\.json$' } | Select-Object -First 1)) { $txt = 'Ya hay notas de Post-It en esta carpeta (de otro equipo o de una versión anterior): este equipo se unirá a ellas y no se crea nota de bienvenida.'; $col = $cVerde }
+    elseif (Test-Path -LiteralPath $d) { $txt = 'Carpeta sin notas todavía: este equipo guardará aquí las suyas.'; $col = $cVerde }
+    else { $txt = 'La carpeta no existe: se creará.'; $col = $cVerde }
+    $lbSync.Text = $txt; $lbSync.ForeColor = $col
+}
+$ckSync.Add_CheckedChanged({ Detectar-Sync }); $tbSync.Add_TextChanged({ Detectar-Sync })
+
+# pagina 6 (Post-It): calendario. Outlook clasico (con el color de sus etiquetas) o un enlace ICS publicado
+$ol = Test-Path 'Registry::HKEY_CLASSES_ROOT\Outlook.Application'
+$p6.Controls.Add((Etiqueta 'Tu calendario (opcional)' 4 4 730 24 $cBlanco (& $fMono 11 'Bold')))
+$p6.Controls.Add((Etiqueta $(if ($ol) { "Outlook clásico detectado: cuando esté abierto, Post-It leerá tus citas`r`nde él y recordará el color de cada etiqueta. El enlace ICS sirve de respaldo`r`ncuando Outlook esté cerrado." } else { "No encuentro Outlook clásico en este equipo: Post-It leerá tu calendario`r`ndel enlace ICS (sin etiquetas ni colores, Outlook web no los publica)." }) 4 32 730 70 $(if ($ol) { $cVerde } else { $cOro }) $null))
+$p6.Controls.Add((Etiqueta "Enlace ICS: Outlook web › Configuración › Calendario › Calendarios compartidos`r`n› Publicar un calendario › ICS. Pégalo aquí (puedes dejarlo vacío: ahora no)." 4 104 730 40 $cGris $null))
+$tbIcs = New-Object Windows.Forms.TextBox; $tbIcs.Location = New-Object Drawing.Point(4, 150); $tbIcs.Size = New-Object Drawing.Size(730, 26); $tbIcs.Text = $Ics
+$tbIcs.BackColor = $cPanel; $tbIcs.ForeColor = $cBlanco; $tbIcs.BorderStyle = 'FixedSingle'; $p6.Controls.Add($tbIcs)
+$bProbar = Boton 'Probar enlace' 4; $bProbar.Location = New-Object Drawing.Point(4, 186); $bProbar.Size = New-Object Drawing.Size(170, 32); $p6.Controls.Add($bProbar)
+$bWeb = Boton 'Abrir Outlook web' 184; $bWeb.Location = New-Object Drawing.Point(184, 186); $bWeb.Size = New-Object Drawing.Size(190, 32); $p6.Controls.Add($bWeb)
+$lbIcs = Etiqueta '' 4 226 730 60 $cGris (& $fMono 9.5 'Regular'); $p6.Controls.Add($lbIcs)
+$bWeb.Add_Click({ Start-Process 'https://outlook.live.com/calendar/0/options/calendar/SharedCalendars' })
+function Probar-Ics {
+    $u = $tbIcs.Text.Trim(); if (-not $u) { $lbIcs.Text = 'Sin enlace: podrás ponerlo después (icono de la bandeja › Calendario).'; $lbIcs.ForeColor = $cGris; return $true }
+    $lbIcs.Text = 'Probando...'; $lbIcs.ForeColor = $cGris; [Windows.Forms.Application]::DoEvents()
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $rq = [Net.WebRequest]::Create($u -replace '^webcal:', 'https:'); $rq.Timeout = 15000; $rs = $rq.GetResponse()
+        $t = (New-Object IO.StreamReader($rs.GetResponseStream())).ReadToEnd(); $rs.Close()
+        if ($t -notmatch 'BEGIN:VCALENDAR') { throw 'La dirección responde, pero no es un calendario ICS.' }
+        $n = ([regex]::Matches($t, 'BEGIN:VEVENT')).Count
+        $lbIcs.Text = "Funciona: $n eventos encontrados."; $lbIcs.ForeColor = $cVerde; return $true
+    } catch { $lbIcs.Text = "No funciona: $($_.Exception.Message)"; $lbIcs.ForeColor = $cRojo; return $false }
+}
+$bProbar.Add_Click({ [void](Probar-Ics) })
 
 # pagina 3: instalando
 $lbPasos = @()
@@ -504,10 +577,12 @@ function Pintar-Paso($k, $e) {
 }
 function Ir($n) {
     $estado.pagina = $n
-    $p1.Visible = ($n -eq 1); $p2.Visible = ($n -eq 2); $p3.Visible = ($n -eq 3); $p4.Visible = ($n -eq 4)
-    $bAtras.Visible = ($n -eq 2); $bCan.Visible = ($n -le 3); $bSig.Enabled = ($n -ne 3)
+    $p1.Visible = ($n -eq 1); $p2.Visible = ($n -eq 2); $p3.Visible = ($n -eq 3); $p4.Visible = ($n -eq 4); $p5.Visible = ($n -eq 5); $p6.Visible = ($n -eq 6)
+    $bAtras.Visible = ($n -in 2, 5, 6); $bCan.Visible = ($n -in 1, 2, 3, 5, 6); $bSig.Enabled = ($n -ne 3)
     if ($n -eq 2) { Detectar }
-    $bSig.Text = switch ($n) { 2 { 'Instalar' } 4 { 'Terminar' } default { 'Siguiente >' } }
+    if ($n -eq 5) { Detectar-Sync }
+    $ultima = $(if ($App.ConSync) { 6 } else { 2 })
+    $bSig.Text = if ($n -eq $ultima) { 'Instalar' } elseif ($n -eq 4) { 'Terminar' } else { 'Siguiente >' }
 }
 for ($k = 0; $k -lt $Pasos.Count; $k++) { Pintar-Paso $k 'pend' }
 
@@ -576,7 +651,7 @@ $timer.Add_Tick({
 
 $bCan.Add_Click({ if ($estado.trabajando) { Pedir-Cancelar } else { $f.Close() } })
 $f.AcceptButton = $bSig; $f.CancelButton = $bCan      # Intro = siguiente, Esc = cancelar
-$bAtras.Add_Click({ Ir 1 })
+$bAtras.Add_Click({ Ir $(switch ($estado.pagina) { 6 { 5 } 5 { 2 } default { 1 } }) })
 $bSig.Add_Click({
     switch ($estado.pagina) {
         1 { Ir 2 }
@@ -584,6 +659,23 @@ $bSig.Add_Click({
             $d = $tbDir.Text.Trim()
             if (-not $d -or -not [IO.Path]::IsPathRooted($d)) { [void][Windows.Forms.MessageBox]::Show('Escribe o elige una carpeta (ruta completa).', 'Carpeta', 'OK', 'Warning'); return }
             $Opc.Dest = $d; $Opc.Escritorio = $ckEsc.Checked; $Opc.Inicio = $ckIni.Checked; $Opc.Arranque = $ckArr.Checked
+            if ($App.ConSync) { Ir 5 } else { $estado.trabajando = $true; Ir 3; Lanzar-Trabajo }
+        }
+        5 {
+            $sd = $tbSync.Text.Trim()
+            if ($ckSync.Checked) {
+                if (-not $sd -or -not [IO.Path]::IsPathRooted($sd)) { [void][Windows.Forms.MessageBox]::Show('Elige la carpeta de sincronización (ruta completa) o desmarca la casilla.', 'Sincronización', 'OK', 'Warning'); return }
+                if ($Opc.Dest.TrimEnd('\') -ieq $sd.TrimEnd('\')) { [void][Windows.Forms.MessageBox]::Show('La carpeta de sincronización tiene que ser distinta a la de instalación.', 'Sincronización', 'OK', 'Warning'); return }
+            }
+            $Opc.SyncDir = $(if ($ckSync.Checked) { $sd } else { $null }); $Opc.TocarSync = $true
+            Ir 6
+        }
+        6 {
+            if ($tbIcs.Text.Trim() -and -not (Probar-Ics)) {
+                if ([Windows.Forms.MessageBox]::Show('El enlace ICS no funciona. ¿Instalar igualmente sin él? (Puedes ponerlo después desde la bandeja.)', 'Calendario', 'YesNo', 'Question') -ne 'Yes') { return }
+                $tbIcs.Text = ''
+            }
+            $Opc.Ics = $tbIcs.Text.Trim()
             $estado.trabajando = $true; Ir 3; Lanzar-Trabajo
         }
         4 { if ($ckAbrir.Checked -and $ckAbrir.Visible -and $estado.pyw) { $l = Lanzador-Final; Start-Process -FilePath $estado.pyw -ArgumentList ('"' + $l + '"') -WorkingDirectory $(if ($App.Tipo -eq 'electron') { $l } else { Split-Path -Parent $l }) }; $f.Close() }
@@ -596,6 +688,7 @@ if ($Captura) {
     $f.Show(); [Windows.Forms.Application]::DoEvents()
     function Foto($nombre) { [Windows.Forms.Application]::DoEvents(); $b = New-Object Drawing.Bitmap($f.Width, $f.Height); $f.DrawToBitmap($b, (New-Object Drawing.Rectangle(0, 0, $f.Width, $f.Height))); $b.Save((Join-Path $Captura "$nombre.png")); $b.Dispose() }
     Ir 1; Foto '1-bienvenida'; Ir 2; Foto '2-opciones'
+    if ($App.ConSync) { Ir 5; Foto '2b-sincronizacion'; $tbIcs.Text = 'https://ejemplo/calendar.ics'; Ir 6; Foto '2c-calendario' }
     $lbNueva.Text = 'Hay una versión más nueva (1.8.0): descárgala en kuerb0.github.io/portal'; Ir 1; Foto '1b-nueva'
     Ir 3; 0..6 | ForEach-Object { Pintar-Paso $_ $(if ($_ -lt 3) { 'ok' } elseif ($_ -eq 3) { 'curso' } else { 'pend' }) }; $relleno.Width = 380; $lbPct.Text = '55 %'
     $rtLog.Text = "  py\app_vuelos.py`r`n  py\vuelos_app.pyw`r`n12 ficheros en C:\Programas\$($App.Nombre)`r`nPython: C:\Programas\$($App.Nombre)\python\python.exe`r`nCollecting streamlit`r`nSuccessfully installed streamlit-1.50.0"

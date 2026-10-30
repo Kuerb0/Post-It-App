@@ -12,9 +12,12 @@
       "package.json",
       "main.js",
       "sync.js",
+      "eventos.js",
+      "outlook.ps1",
       "preload.js",
       "note.html",
       "lanzador.html",
+      "calendario.html",
       "assets"
     ],
     "datos_usuario": [

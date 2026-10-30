@@ -1,15 +1,31 @@
-const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog,screen,shell,Notification}=require('electron');
-const S=require('./sync');
+const {app,BrowserWindow,Tray,Menu,ipcMain,nativeImage,dialog,screen,shell,Notification,net}=require('electron');
+const S=require('./sync'),E=require('./eventos');
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),{spawn,execFileSync}=require('child_process');
 
-const LOCAL=path.join(__dirname,'notes.json');
-let DATA=LOCAL; // la ruta real se fija al arrancar (ubicar): en OneDrive, para que las notas se sincronicen entre equipos
+const LOCAL=path.join(__dirname,'notes.json'); // solo la 1.x guardaba aquí; se importa una vez
+let DATOS; // carpeta de las notas: la de sincronización (OneDrive) o, sin ella, la de datos de la app. Cada equipo escribe en ella su postit-<equipo>.json
 const ICON=path.join(__dirname,'assets','icon.png');
+// Post-it de la primera vez: lo esencial, con ejemplos que se pueden probar ahí mismo. El resto está en F1.
+const BIENVENIDA=(()=>{
+  const d=new Date(Date.now()+864e5),f=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  return '<div><b>Bienvenido a Post-It 👋</b></div>'+
+    '<div>Escribe <b>-</b> y un espacio para crear una tarea:</div>'+
+    '<div><input type="checkbox"> probar una tarea</div>'+
+    '<div><input type="checkbox"> regar las plantas @diario</div>'+
+    '<div>Escribe una fecha y verás los días que faltan:</div>'+
+    '<div><b>'+f+'</b></div>'+
+    '<div><input type="checkbox"> 18:30 Dentista</div>'+
+    '<div><b>/</b> abre un menú: alarma, tarea, carpeta…</div>'+
+    '<div>📅 de la barra une la nota a tu calendario; el icono de la bandeja te deja elegir la carpeta de sincronización.</div>'+
+    '<div><b>F1</b> te enseña todos los atajos · <b>Ctrl+L</b> todas tus notas.</div>';
+})();
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f48fb1','#ce93d8'];
-let notes=[],pos={},last='',POS,ALM,tray,CFG,cfg={},carpeta=null,firma='',tExp;
+let notes=[],borradas=[],ajustes={},colores=E.cacheVacia(),eventos=[],pos={},POS,ALM,tray,CFG,cfg={},carpeta=null,firma='',firmaS='',tExp;
+const ESTADO=S.estadoNuevo();
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
-const save=()=>{fs.mkdirSync(path.dirname(DATA),{recursive:true});fs.writeFileSync(DATA,last=JSON.stringify(notes,null,1));exportar()};
+const guardarSync=()=>S.escribirSync(DATOS,{notas:notes,borradas,ajustes,colores});
+const save=()=>{borradas=S.marcar(ESTADO,notes);guardarSync();exportar()};
 const find=id=>notes.find(n=>n.id==id);
 const win=e=>BrowserWindow.fromWebContents(e.sender);
 
@@ -87,26 +103,30 @@ function add(){ // las nuevas nacen dormidas: abiertas ahora, pero no al próxim
   notes.push(n);save();open(n);
 }
 
-// ---- sincronizacion con el Calendario por una carpeta compartida (ver sync.js)
-// notas-<equipo>.json: las lineas con hora bajo una fecha de las notas unidas · agenda-<equipo>.json: lo que escribe el Calendario
+// ---- eventos del calendario (eventos.js): Outlook clásico abierto (con color) o el enlace ICS (con los colores recordados); sin ninguno, la agenda del Calendario si está en la carpeta
+// Con el Calendario instalado: notas-<equipo>.json lleva las líneas con hora de las notas unidas y agenda-<equipo>.json lo que escribe él (ver sync.js)
 const guardarCfg=()=>fs.writeFileSync(CFG,JSON.stringify(cfg));
 function exportar(){ // con un respiro: guardar se llama a cada tecla
   clearTimeout(tExp);
   tExp=setTimeout(()=>{
-    if(!carpeta)return;
+    if(!carpeta||!S.firmaAgenda(carpeta))return; // sin Calendario en la carpeta no hay a quién escribirle
     try{
       S.escribirNotas(carpeta,S.extraer(notes,new Date()));
     }catch(err){console.error('sync',err)}
   },1500);
 }
-function refrescarAgenda(){
-  if(!carpeta)return;
-  const f=S.firmaAgenda(carpeta)+'|'+S.iso(new Date());
-  if(!f.split('|')[0]||f==firma)return;
-  firma=f;
-  for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventosNotas()); // notas unidas: pintan los eventos bajo sus fechas
+let leyendo=false,fuenteEv={fuente:'ninguna'};
+async function actualizarEventos(){
+  if(leyendo)return;leyendo=true;
+  try{
+    const antes=JSON.stringify(colores),d=new Date(Date.now()-7*864e5),h=new Date(Date.now()+120*864e5); // la semana pasada y los 120 días siguientes
+    const o=await E.obtener({ics:ajustes.ics,cache:colores,desde:d,hasta:h});
+    fuenteEv=o;eventos=o.eventos;
+    if(o.fuente=='ninguna'&&carpeta)eventos=S.leerAgenda(carpeta,d,127); // el Calendario, si está
+    if(JSON.stringify(colores)!=antes)guardarSync();                    // colores recordados nuevos: se comparten con los demás equipos
+    for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventos);
+  }catch(err){console.error('eventos',err)}finally{leyendo=false}
 }
-const eventosNotas=()=>carpeta?S.leerAgenda(carpeta,new Date(Date.now()-7*864e5),127):[]; // la semana pasada y los 120 días siguientes (lo que escribe el Calendario, DIAS_AGENDA)
 // ---- lanzador (clic en el icono de la bandeja): miniaturas de las notas, abrir/cerrar, cuáles arrancan y cuál es la principal (lanzador.html)
 let lw,lwCerrado=0;
 const cl=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));
@@ -136,18 +156,75 @@ ipcMain.on('lanz',(e,a,id)=>{
 });
 const menuBandeja=()=>tray.popUpContextMenu(Menu.buildFromTemplate([
   {label:'Nueva nota',click:add},{label:'Traer las abiertas a este escritorio',click:showAll},
-  {label:'Carpeta compartida con el Calendario…',click:elegirCarpeta},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
-function elegirCarpeta(){
-  const r=dialog.showOpenDialogSync({title:'Carpeta compartida con el Calendario',defaultPath:carpeta||undefined,properties:['openDirectory','createDirectory']});
+  {label:'Calendario (Outlook o enlace ICS)…',click:ventanaCalendario},
+  {label:'Carpeta de sincronización…',click:elegirCarpeta},{label:'Buscar actualizaciones…',click:()=>buscarActualizacion(true)},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
+function elegirCarpeta(){ // una carpeta que sincronice OneDrive; las notas de los dos lados se fusionan
+  const r=dialog.showOpenDialogSync({title:'Carpeta de sincronización (la que comparte OneDrive entre tus equipos)',defaultPath:cfg.sync||undefined,properties:['openDirectory','createDirectory']});
   if(!r)return;
-  cfg.carpeta=r[0];guardarCfg();carpeta=r[0];firma='';exportar();refrescarAgenda();
+  cfg.sync=r[0];carpeta=DATOS=r[0];guardarCfg();firma='';
+  unir(S.leerSync(DATOS));firmaS=S.firmaSync(DATOS,S.ficheroEquipo(DATOS));guardarSync();exportar();actualizarEventos();
 }
-function ubicar(){ // dónde van las notas y qué carpeta se comparte con el Calendario; se fija la primera vez y no cambia solo
+let cw;
+function ventanaCalendario(){
+  if(cw&&!cw.isDestroyed())return cw.focus();
+  cw=new BrowserWindow({width:520,height:430,resizable:false,minimizable:false,autoHideMenuBar:true,icon:ICON,title:'Post-It · Calendario',backgroundColor:'#262626',
+    webPreferences:{preload:path.join(__dirname,'preload.js')}});
+  cw.loadFile('calendario.html');
+}
+ipcMain.handle('ics:get',()=>({ics:ajustes.ics||'',fuente:fuenteEv.fuente,estadoOutlook:fuenteEv.estadoOutlook||'',error:fuenteEv.error||'',n:eventos.length}));
+ipcMain.handle('ics:probar',async(e,url)=>{
+  try{const t=await E.bajar(String(url||'').trim());return {ok:true,n:E.eventosICS(t,new Date(),new Date(Date.now()+120*864e5)).length}}catch(err){return {ok:false,error:String(err.message||err)}}
+});
+ipcMain.handle('ics:guardar',async(e,url)=>{
+  ajustes={ics:String(url||'').trim(),mod:Date.now()};guardarSync();await actualizarEventos();return true;
+});
+// ---- aviso de versión nueva: se mira la package.json publicada en GitHub (no se manda ningún dato). «Actualizar» baja el instalador de esa versión y lo abre;
+// él conserva tus notas y tus ajustes. Se pregunta una vez por versión (o siempre que lo pidas desde la bandeja).
+const VERSION=require('./package.json').version;
+async function buscarActualizacion(aMano){
+  try{
+    const v=JSON.parse(await E.bajar('https://raw.githubusercontent.com/Kuerb0/Post-It-App/main/package.json')).version;
+    if(!S.versionMayor(v,VERSION)){if(aMano)dialog.showMessageBox({type:'info',title:'Post-It',message:`Tienes la última versión (${VERSION}).`});return}
+    if(!aMano&&cfg.avisada==v)return;
+    cfg.avisada=v;guardarCfg();
+    const r=await dialog.showMessageBox({type:'info',buttons:['Actualizar','Más tarde'],defaultId:0,cancelId:1,title:'Post-It',
+      message:`Hay una versión nueva de Post-It (${v}); tienes la ${VERSION}.`,detail:'«Actualizar» descarga el instalador y lo abre. Tus notas y ajustes se conservan.'});
+    if(r.response!=0)return;
+    const f=path.join(app.getPath('temp'),`Post-It ${v} - Instalador.exe`),res=await net.fetch(`https://github.com/Kuerb0/Post-It-App/raw/main/instaladores/${encodeURIComponent(`Post-It ${v} - Instalador.exe`)}`);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    fs.writeFileSync(f,Buffer.from(await res.arrayBuffer()));shell.openPath(f);
+  }catch(err){if(aMano)dialog.showMessageBox({type:'warning',title:'Post-It',message:'No se pudo comprobar las actualizaciones.',detail:String(err.message||err)})}
+}
+// ---- dónde viven las notas: se fija la primera vez (sync.json de la app) y no cambia solo
+function ubicar(){
   CFG=path.join(app.getPath('userData'),'sync.json');cfg=read(CFG,{});
-  const c=S.carpetaCompartida({guardada:cfg.carpeta,raiz:__dirname});
-  carpeta=c.ruta;
-  if(!cfg.notas){cfg.notas=S.rutaNotas({carpeta:c.origen=='creada'?null:carpeta,local:LOCAL});guardarCfg()} // «creada» = no hay OneDrive: junto a la app
-  DATA=cfg.notas;S.migrarNotas(DATA,LOCAL);
+  if(cfg.sync===undefined){ // primera vez con la 2.0: si la 1.x tenía las notas fuera de la app (OneDrive), esa carpeta pasa a ser la de sincronización
+    cfg.sync=cfg.notas&&path.resolve(cfg.notas)!=path.resolve(LOCAL)?path.dirname(cfg.notas):null;
+    delete cfg.notas;delete cfg.carpeta;guardarCfg();
+  }
+  carpeta=cfg.sync||null;
+  DATOS=carpeta||path.join(app.getPath('userData'),'datos');
+}
+// Une lo de la carpeta con lo que hay en memoria (nada al arrancar) y se queda con el resultado. Devuelve true si algo cambió.
+function unir(archivos){
+  const f=S.fusionar([{notas:notes,borradas,ajustes,colores},...archivos]);
+  const cambio=JSON.stringify([f.notas,f.ajustes])!=JSON.stringify([notes,ajustes]);
+  const habia=new Set(notes.map(n=>n.id));
+  notes=f.notas;borradas=f.borradas;ajustes=f.ajustes;colores=f.colores;S.iniciarEstado(ESTADO,notes,borradas);
+  return {cambio,habia};
+}
+function recargar(){ // otro equipo guardó (OneDrive trajo su fichero): se fusiona y se repintan las notas que no se están usando
+  const f=S.firmaSync(DATOS,S.ficheroEquipo(DATOS));if(f==firmaS)return;firmaS=f;
+  const {cambio,habia}=unir(S.leerSync(DATOS,{menos:S.ficheroEquipo(DATOS)}));
+  if(!cambio)return;
+  exportar();
+  for(const [id,w] of wins)if(!find(id))w.close();
+  for(const n of notes){
+    const w=wins.get(n.id);
+    if(!habia.has(n.id)){if(inicia(n))open(n)}
+    else if(w&&!w.isFocused()){w.setBackgroundColor(n.color);apply(w,n);w.webContents.send('set',n)}
+  }
+  pintarLanz();if(ajustes.ics)actualizarEventos();
 }
 // ---- alarmas: el editor manda con cada guardado las de la nota (n.alarms). Suenan aunque la nota esté cerrada o dormida; las ya sonadas se recuerdan en este equipo
 let sonadas=new Set();
@@ -166,8 +243,9 @@ function comprobarAlarmas(){
 function iniciarSync(){
   ALM=path.join(app.getPath('userData'),'alarmas.json');sonadas=new Set(read(ALM,[]));
   comprobarAlarmas();setInterval(comprobarAlarmas,15000);
-  exportar();refrescarAgenda();
-  setInterval(refrescarAgenda,15000);
+  exportar();actualizarEventos();
+  setInterval(actualizarEventos,300000);setInterval(recargar,3000);
+  setTimeout(buscarActualizacion,20000);setInterval(buscarActualizacion,6*3600000);
   setInterval(exportar,3600000); // «hoy» y «mañana» cambian de dia aunque la nota no se toque
 }
 
@@ -188,7 +266,7 @@ ipcMain.handle('glass',(e,id)=>{
 ipcMain.handle('cal',(e,id)=>{ // unir con el Calendario: sus tareas bajo una fecha van al Calendario y ven sus eventos
   const n=find(id);n.cal=n.cal?undefined:true;save();return !!n.cal;
 });
-ipcMain.handle('agenda',()=>eventosNotas());
+ipcMain.handle('agenda',()=>eventos);
 ipcMain.handle('estilo',()=>({fs:cfg.tam||15,lh:cfg.lh||1.35})); // letra (px) e interlineado: globales, valen para todas las notas
 let tEst;
 ipcMain.on('estilo',(e,f,l)=>{ // deslizadores: se reparte al momento al resto de notas y se guarda con un respiro
@@ -197,10 +275,9 @@ ipcMain.on('estilo',(e,f,l)=>{ // deslizadores: se reparte al momento al resto d
   for(const w of wins.values())if(!w.isDestroyed()&&w.webContents!==e.sender)w.webContents.send('estilo',est);
   clearTimeout(tEst);tEst=setTimeout(guardarCfg,500);
 });
-ipcMain.handle('refrescar',()=>{ // botón ⟳: el Calendario relee Outlook y reescribe la agenda; aquí se relee ya y se vigila cada 2 s (30 s máx.) en vez de cada 15
-  if(carpeta)try{S.pedirRefresco(carpeta)}catch(err){console.error('refrescar',err)}
-  firma='';refrescarAgenda();
-  let n=0;const t=setInterval(()=>{refrescarAgenda();if(++n>=15)clearInterval(t)},2000);
+ipcMain.handle('refrescar',()=>{ // botón ⟳: relee ya Outlook/ICS (y avisa al Calendario si está)
+  if(carpeta&&S.firmaAgenda(carpeta))try{S.pedirRefresco(carpeta)}catch(err){console.error('refrescar',err)}
+  actualizarEventos();
 });
 ipcMain.on('hechoCal',(e,id,k,v)=>{ // casilla de un evento del Calendario pintado en la nota; k = id del evento (uid@inicio)
   const n=find(id);if(!n)return;
@@ -227,15 +304,13 @@ app.whenReady().then(()=>{
   pos=read(POS,{});
   ubicar();
   todos=hex('VirtualDesktopIDs');ahora=hex('CurrentVirtualDesktop')||todos.slice(0,32);
-  let raw='';try{raw=fs.readFileSync(DATA,'utf8')}catch{}
-  try{notes=JSON.parse(raw)}catch{notes=[];if(raw.trim())fs.copyFileSync(DATA,DATA+'.ilegible')} // existe pero no se lee: se guarda aparte antes de que nada lo pise
+  const arch=S.leerSync(DATOS);
+  if(!carpeta||!arch.length)try{arch.push({notas:JSON.parse(fs.readFileSync(LOCAL,'utf8'))})}catch{} // notas de la 1.x junto a la app
+  unir(arch);firmaS=S.firmaSync(DATOS,S.ficheroEquipo(DATOS));
+  if(cfg.ics){ajustes={ics:cfg.ics,mod:Date.now()};delete cfg.ics;guardarCfg()} // el instalador deja aquí el enlace; pasa a la carpeta de sync
   const nueva=!notes.length;
-  if(nueva)notes.push({id:crypto.randomUUID(),color:COLORS[0],html:
-    '<div>Bienvenido 👋 Escribe <b>-</b> + espacio para crear una tarea. Pulsa <b>F1</b> para ver los atajos.</div>'+
-    '<div>Repetir: @diario @semanal @mensual @lunes @cada3d</div>'+
-    '<div><input type="checkbox"> regar plantas @diario</div>'+
-    '<div><input type="checkbox"> informe @lunes</div>'});
-  if(!nueva)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
+  if(nueva)notes.push({id:crypto.randomUUID(),color:COLORS[0],html:BIENVENIDA});
+  if(!nueva||ajustes.ics)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
   showAll();iniciarSync();vigilarEscritorio();
 
   // arranque con Windows
@@ -245,15 +320,4 @@ app.whenReady().then(()=>{
   tray.setToolTip('Post-its');
   tray.on('click',lanzador);tray.on('right-click',menuBandeja);
 
-  // OneDrive trajo cambios de otro equipo → recargar
-  fs.watchFile(DATA,{interval:3000},()=>{
-    let s,j;try{s=fs.readFileSync(DATA,'utf8');if(s==last)return;j=JSON.parse(s)}catch{return}
-    const had=new Set(notes.map(n=>n.id));last=s;notes=j;exportar();
-    for(const [id,w] of wins)if(!find(id))w.close();
-    for(const n of notes){
-      const w=wins.get(n.id);
-      if(!had.has(n.id)){if(inicia(n))open(n)}
-      else if(w&&!w.isFocused()){w.setBackgroundColor(n.color);apply(w,n);w.webContents.send('set',n)}
-    }
-  });
 });

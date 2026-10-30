@@ -1,16 +1,16 @@
-// Enlace con el Calendario por una carpeta compartida (AgendaCompartida), sin servidor ni cuenta.
+// Sincronización entre equipos y enlace con el Calendario por una carpeta compartida (la de OneDrive), sin servidor ni cuenta.
 //  · notas-<EQUIPO>.json  lo escribe Post-It: las líneas de las notas que llevan hora (se ven en el Calendario)
 //  · agenda-<EQUIPO>.json lo escribe el Calendario: sus próximos eventos (salen bajo cada fecha de las notas unidas)
 // Cada equipo escribe solo su fichero y todos leen todos: así OneDrive no crea copias en conflicto.
 // Sin dependencias de Electron: se prueba con node (tests/test_sync.js).
 const fs = require('fs'), path = require('path'), os = require('os');
 
-const NOMBRE_CARPETA = 'AgendaCompartida';
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const pad = n => String(n).padStart(2, '0');
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const isoHora = (d, h, m) => `${iso(d)}T${pad(h)}:${pad(m)}:00`;
 const sumar = (d, n) => { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); r.setDate(r.getDate() + n); return r; };
+const versionMayor = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 const equipo = () => os.hostname().replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'PC';
 
 // ------------------------------------------------------------------ de HTML a líneas
@@ -80,33 +80,66 @@ function alarmasVencidas(notas, sonadas, ahora = Date.now()) {
   return out;
 }
 
-// ------------------------------------------------------------------ carpeta compartida
-// Orden: la guardada · la variable AGENDA_COMPARTIDA · una carpeta AgendaCompartida junto a la app, en OneDrive o en Documentos · se crea junto a la app.
-function carpetaCompartida({ guardada, raiz, entorno = process.env, hogar = os.homedir() } = {}) {
+// ------------------------------------------------------------------ carpeta de sincronización
+// Una sola carpeta (la que comparte OneDrive entre equipos) con un fichero por equipo: postit-<EQUIPO>.json (notas, ajustes y colores recordados)
+// y los de la agenda (notas-/agenda-/estado-) si se usa el Calendario. Cada equipo escribe SOLO el suyo y lee todos: OneDrive nunca crea copias en conflicto.
+// Sin sincronización la «carpeta» es la de datos de la app (local) y todo funciona igual.
+const NOMBRE_SYNC = 'Carpeta de Sincronización';
+function carpetaOneDrive({ entorno = process.env, hogar = os.homedir() } = {}) { // carpeta propuesta dentro del OneDrive del equipo, o null
   const existe = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  if (guardada && existe(guardada)) return { ruta: guardada, origen: 'guardada' };
-  if (entorno.AGENDA_COMPARTIDA && existe(entorno.AGENDA_COMPARTIDA)) return { ruta: entorno.AGENDA_COMPARTIDA, origen: 'entorno' };
-  const candidatas = [];
-  if (raiz) { candidatas.push(path.join(path.dirname(raiz), NOMBRE_CARPETA), path.join(path.dirname(path.dirname(raiz)), NOMBRE_CARPETA)); }
-  for (const k of ['OneDrive', 'OneDriveConsumer', 'OneDriveCommercial']) if (entorno[k]) candidatas.push(path.join(entorno[k], NOMBRE_CARPETA));
-  candidatas.push(path.join(hogar, 'OneDrive', NOMBRE_CARPETA), path.join(hogar, 'Documents', NOMBRE_CARPETA), path.join(hogar, 'Documentos', NOMBRE_CARPETA));
-  for (const c of candidatas) if (existe(c)) return { ruta: c, origen: 'detectada' };
-  const nueva = raiz ? path.join(path.dirname(raiz), NOMBRE_CARPETA) : path.join(hogar, NOMBRE_CARPETA);
-  try { fs.mkdirSync(nueva, { recursive: true }); return { ruta: nueva, origen: 'creada' }; } catch { return { ruta: null, origen: 'ninguna' }; }
+  const raices = ['OneDrive', 'OneDriveConsumer', 'OneDriveCommercial'].map(k => entorno[k]).filter(Boolean).concat(path.join(hogar, 'OneDrive'));
+  const raiz = raices.find(existe);
+  return raiz ? path.join(raiz, NOMBRE_SYNC) : null;
 }
-
-// ------------------------------------------------------------------ dónde viven las notas
-// Junto a la carpeta compartida (OneDrive\Post-It\notes.json): lo que sincroniza OneDrive es lo que ven todos los equipos.
-// La app instalada vive en local (%LOCALAPPDATA%), así que sus notas NO pueden quedarse junto a ella. Sin carpeta compartida: junto a la app.
-function rutaNotas({ carpeta, local }) {
-  return carpeta ? path.join(path.dirname(carpeta), 'Post-It', 'notes.json') : local;
+const huella = n => JSON.stringify({ ...n, mod: undefined });
+// Estado de seguimiento: qué se sabe de cada nota para marcar cuándo cambió (mod) y qué se borró (borradas).
+const estadoNuevo = () => ({ huellas: new Map(), borradas: new Map() });
+function iniciarEstado(estado, notas, borradas = []) {      // tras leer/fusionar: se da por «tal cual está», sin tocar ningún mod
+  estado.huellas = new Map(notas.map(n => [n.id, huella(n)]));
+  estado.borradas = new Map(borradas.map(b => [b.id, b.mod]));
 }
-// Primera vez en esa ruta: se llevan las notas que tenía la app. Si ya hay unas allí (de otro equipo), mandan esas y las locales no se tocan.
-function migrarNotas(destino, local) {
-  if (destino === local || fs.existsSync(destino) || !fs.existsSync(local)) return false;
-  fs.mkdirSync(path.dirname(destino), { recursive: true });
-  fs.copyFileSync(local, destino);
-  return true;
+function marcar(estado, notas, ahora = Date.now()) {         // antes de guardar: las notas cambiadas llevan mod = ahora; las que faltan pasan a borradas
+  const ids = new Set();
+  for (const n of notas) {
+    ids.add(n.id);
+    const h = huella(n);
+    if (estado.huellas.get(n.id) !== h) { n.mod = ahora; estado.huellas.set(n.id, h); estado.borradas.delete(n.id); }
+  }
+  for (const id of [...estado.huellas.keys()]) if (!ids.has(id)) { estado.huellas.delete(id); estado.borradas.set(id, ahora); }
+  return [...estado.borradas].map(([id, mod]) => ({ id, mod }));
+}
+// Une lo que escribió cada equipo: por nota gana el cambio más reciente (mod); un borrado más reciente que la nota la quita.
+// archivos: [{notas, borradas?, ajustes?, colores?}] · los antiguos (notes.json de la 1.x) valen mod 0. Devuelve {notas, borradas, ajustes, colores}.
+function fusionar(archivos) {
+  const mejor = new Map(), borr = new Map(); let ajustes = { mod: -1 }, colores = { categorias: {}, titulos: {} };
+  for (const f of archivos) {
+    for (const n of f.notas || []) { const m = mejor.get(n.id); if (!m || (n.mod || 0) > (m.mod || 0)) mejor.set(n.id, n); }
+    for (const b of f.borradas || []) if (!borr.has(b.id) || b.mod > borr.get(b.id)) borr.set(b.id, b.mod);
+    if (f.ajustes && (f.ajustes.mod || 0) > ajustes.mod) ajustes = f.ajustes;
+    if (f.colores) { Object.assign(colores.categorias, f.colores.categorias); Object.assign(colores.titulos, f.colores.titulos); }
+  }
+  const notas = [], borradas = [];
+  for (const [id, n] of mejor) { if (borr.has(id) && borr.get(id) >= (n.mod || 0)) continue; notas.push(n); }
+  for (const [id, mod] of borr) if (!mejor.has(id) || mejor.get(id).mod < mod) borradas.push({ id, mod });
+  return { notas, borradas, ajustes: ajustes.mod < 0 ? {} : ajustes, colores };
+}
+const ficheroEquipo = (carpeta, nombre = equipo()) => path.join(carpeta, `postit-${nombre}.json`);
+function leerSync(carpeta, { menos } = {}) {                 // todos los ficheros de notas de la carpeta (menos el que se indique: el propio, que ya está en memoria)
+  let nombres = []; try { nombres = fs.readdirSync(carpeta); } catch { return []; }
+  const out = [];
+  for (const f of nombres) {
+    const nuevo = /^postit-.+\.json$/i.test(f), viejo = /^notes.*\.json$/i.test(f);        // viejo = notes.json de la 1.x y sus copias en conflicto (una lista de notas)
+    if ((!nuevo && !viejo) || (menos && path.resolve(carpeta, f) === path.resolve(menos))) continue;
+    try { const o = JSON.parse(fs.readFileSync(path.join(carpeta, f), 'utf8')); out.push(nuevo && o && !Array.isArray(o) ? o : { notas: Array.isArray(o) ? o : [] }); } catch { /* medio escrito o roto: se ignora */ }
+  }
+  return out;
+}
+function firmaSync(carpeta, menos) {                         // cambia cuando otro equipo guarda algo (menos = el fichero propio, que no cuenta)
+  try { return fs.readdirSync(carpeta).filter(f => /^(postit-.+|notes.*)\.json$/i.test(f) && !(menos && path.resolve(carpeta, f) === path.resolve(menos))).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
+}
+function escribirSync(carpeta, datos, nombre = equipo()) {   // datos: {notas, borradas, ajustes, colores}
+  fs.mkdirSync(carpeta, { recursive: true });
+  return escribirAtomico(ficheroEquipo(carpeta, nombre), { version: 2, equipo: nombre, ...datos });
 }
 
 // ------------------------------------------------------------------ ficheros
@@ -143,4 +176,4 @@ function firmaAgenda(carpeta) {
   try { return fs.readdirSync(carpeta).filter(f => f.startsWith('agenda-')).map(f => f + fs.statSync(path.join(carpeta, f)).mtimeMs).join('|'); } catch { return ''; }
 }
 
-module.exports = { lineas, extraer, alarmasVencidas, carpetaCompartida, rutaNotas, migrarNotas, escribirNotas, pedirRefresco, leerAgenda, firmaAgenda, equipo, iso, NOMBRE_CARPETA };
+module.exports = { versionMayor, lineas, extraer, alarmasVencidas, carpetaOneDrive, estadoNuevo, iniciarEstado, marcar, fusionar, ficheroEquipo, leerSync, firmaSync, escribirSync, escribirNotas, pedirRefresco, leerAgenda, firmaAgenda, equipo, iso };

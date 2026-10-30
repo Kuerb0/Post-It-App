@@ -4,3 +4,6 @@ notes.json
 desktop.ini
 build/
 dist/
+notes-*.json
+anteriores/
+postit-*.json

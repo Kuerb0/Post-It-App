@@ -39,6 +39,9 @@ button.on{opacity:1;background:#0003}
 #tb s{width:1px;height:16px;background:#0003;margin:0 3px}
 #help{position:absolute;inset:30px 0 0 0;background:#000d;color:#fff;padding:10px 14px;font-size:13px;overflow:auto;display:none}
 #help b{display:inline-block;min-width:92px;color:#ffd83b}
+#help h4{margin:14px 0 4px;color:#9be7ff;font-size:12px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid #fff3;padding-bottom:2px}
+#help .hd{font-size:15px;font-weight:600}#help .hd span{font-size:11px;font-weight:400;opacity:.6}
+#help div{margin:2px 0}
 #help div{margin:3px 0}
 </style>
 <svg style="display:none"><defs>
@@ -114,32 +117,57 @@ button.on{opacity:1;background:#0003}
 <div id=slash></div>
 <div id=alp><input type=datetime-local id=alt><button id=alok>OK</button><button id=alno title="Quitar la alarma">Quitar</button></div>
 <div id=help onclick="help.style.display='none'">
+  <div class=hd>Atajos y ayuda <span>(Esc o clic para cerrar · rueda para bajar)</span></div>
+
+  <h4>Escribir y dar formato</h4>
   <div><b>Ctrl+B / I / U</b> negrita, cursiva, subrayado</div>
-  <div><b>Ctrl+T</b> tachado</div>
-  <div><b>Ctrl+Shift+H</b> resaltar</div>
+  <div><b>Ctrl+T</b> tachado (también Ctrl+Shift+X)</div>
+  <div><b>Ctrl+Shift+H</b> resaltar (otra vez: quitar el resaltado)</div>
   <div><b>Ctrl+Shift+1</b> título</div>
-  <div><b>Ctrl+Espacio</b> quitar formato</div>
-  <div><b>- ␣ &nbsp;o&nbsp; [] ␣</b> tarea con casilla</div>
-  <div><b>Ctrl+Enter</b> crear tarea / marcarla</div>
-  <div><b>* ␣ &nbsp;/&nbsp; 1. ␣</b> viñetas / numerada</div>
-  <div><b>Ctrl+Shift+8 / 7</b> viñetas / numerada</div>
-  <div><b>/</b> menú de opciones (alarma, tarea, carpeta…): escribe para filtrar, ↑↓ y Intro. <b style="min-width:0">⏰ Alarma</b>: eliges fecha y hora (escribiéndola o con el selector) y a esa hora la nota salta aunque esté cerrada. Clic en la etiqueta para cambiarla o quitarla</div>
-  <div><b>Ctrl+Shift+O</b> ordenar las carpetas por la fecha que llevan dentro: arriba la que llega antes desde hoy (se repite cada año); sin fecha, abajo. Se hace solo al abrir la nota, al salir de ella y al cambiar de día</div>
-  <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde/muestra lo que tiene debajo hasta la siguiente carpeta</div>
+  <div><b>Ctrl+Espacio</b> quitar el formato</div>
+  <div><b>Ctrl+Z / Ctrl+Y</b> deshacer / rehacer</div>
   <div><b>Tab / Shift+Tab</b> sangría</div>
-  <div><b>Alt+↑ / Alt+↓</b> mover línea</div>
-  <div><b>Ctrl+N / Ctrl+W</b> nueva / cerrar nota</div>
-  <div><b>Ctrl+L</b> lanzador: todas las notas (abrir, principal, cuáles arrancan)</div>
+  <div><b>Alt+↑ / Alt+↓</b> mover la línea (o las líneas seleccionadas)</div>
+  <div><b>Pegar</b> siempre entra como texto sin formato</div>
+
+  <h4>Tareas y listas</h4>
+  <div><b>- ␣ &nbsp;o&nbsp; [] ␣</b> convierte la línea en tarea con casilla</div>
+  <div><b>Ctrl+Enter</b> crea la tarea o la marca; con varias líneas seleccionadas, a todas a la vez</div>
+  <div><b>Intro</b> en una tarea: la siguiente línea también es tarea; en una tarea vacía, sales de la lista</div>
+  <div><b>* ␣ &nbsp;/&nbsp; 1. ␣</b> viñetas / numerada (o Ctrl+Shift+8 / 7)</div>
+  <div><b>@diario @semanal @mensual @lunes…@domingo @cada3d</b> en una tarea: al marcarla se queda hecha y muestra <i>↻ vuelve 21/10</i>; ese día se desmarca sola</div>
+  <div><b>Ctrl+Shift+R</b> línea periódica: se copia como tarea bajo las fechas que haya más abajo. Reglas escritas en la línea: <i>cada 2 lunes</i>, <i>cada 3 días</i>, <i>cada semana</i>, <i>cada 2 semanas</i>, <i>cada mes</i>. Sin regla, bajo todas las fechas. Clic en su icono para quitarla</div>
+
+  <h4>Fechas, alarmas y carpetas</h4>
+  <div><b>Una fecha sola</b> en una línea (<i>Lunes 02/11</i>, <i>14/10</i>, <i>14-10-2027</i>) es una cabecera: sale en negrita con «hoy», «mañana» o «faltan N días»; bajo ella pones las tareas de ese día. Sin año, se entiende el próximo</div>
+  <div><b>Ctrl+Shift+D</b> añadir varias fechas seguidas de golpe (+2, +3, +5, +7, +14, +30 días)</div>
+  <div><b>/</b> menú de opciones: ⏰ Alarma, ☑ Tarea, 📁 Carpeta, H Título, • Viñetas, 1. Numerada, 📅 Varias fechas, 🔁 Periódica. Escribe para filtrar, ↑↓ para moverte, Intro para elegir, Esc para salir</div>
+  <div><b>⏰ Alarma</b> pide fecha y hora (escribiéndola o con el selector) y deja una etiqueta en la línea: a esa hora la nota salta y suena aunque esté cerrada o dormida. Clic en la etiqueta para cambiarla o quitarla</div>
+  <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde o muestra lo que tiene debajo hasta la siguiente carpeta (útil para cumpleaños, listas largas…)</div>
+  <div><b>Ctrl+Shift+O</b> ordenar las carpetas por la fecha que llevan dentro: arriba la que llega antes desde hoy (se repite cada año); sin fecha, abajo. Se hace solo al abrir la nota, al salir de ella y al cambiar de día</div>
+
+  <h4>Calendario</h4>
+  <div><b>Botón 📅</b> une la nota a tu calendario: sus eventos salen bajo cada fecha como tareas <i>📅 10:30 Reunión</i> (clic en la casilla para tacharlos; no se pueden editar). Las líneas con hora que escribas bajo una fecha (<i>22/10</i> → <i>18:30 Dentista</i>) pasan además al Calendario si lo tienes en la carpeta de sincronización</div>
+  <div><b>Colores</b> con Outlook clásico abierto, cada evento lleva el color de su etiqueta; Post-It lo recuerda aunque luego lo cierres. Con el enlace ICS (que no trae etiquetas) se usan esos colores recordados</div>
+  <div><b>Botón ⟳</b> (solo en notas unidas) vuelve a leer el calendario al momento; si no, se actualiza solo cada 5 minutos</div>
+  <div><b>Bandeja › Calendario…</b> pegar o cambiar el enlace ICS, probarlo y ver de dónde se está leyendo</div>
+
+  <h4>La nota y las ventanas</h4>
+  <div><b>Ctrl+N / Ctrl+W</b> nueva nota / cerrar esta (queda dormida: se abre desde el lanzador)</div>
+  <div><b>Ctrl+L</b> lanzador: todas tus notas en miniatura. ★ la hace principal (siempre arranca con Windows), ⏻ marca cuáles arrancan, ✕ cierra</div>
   <div><b>Ctrl+M</b> minimizar (vuelve desde la barra de tareas o el icono de la bandeja)</div>
-  <div><b>Ctrl+Shift+C</b> cambiar color</div>
-  <div><b>Ctrl+Shift+R</b> linea periodica: se copia como tarea bajo las fechas (14/10, 15/10...) que haya mas abajo. Reglas: escribe en la linea <i>cada 2 lunes</i>, <i>cada 3 dias</i>, <i>cada semana</i>, <i>cada 2 semanas</i>, <i>cada mes</i></div>
-  <div><b>Ctrl+Shift+D</b> anadir varias fechas de golpe</div>
+  <div><b>Ctrl+Shift+C</b> cambiar el color de la nota</div>
+  <div><b>Ctrl+Shift+P</b> posición: normal / encima de todo / debajo de todo</div>
+  <div><b>Ctrl+Shift+G</b> translúcida / opaca</div>
   <div><b>Ctrl+Shift+K</b> columnas: 2 / 3 / 4 / 5 / quitar</div>
-  <div><b>Ctrl+Shift+G</b> translucida / opaca</div>
-  <div><b>Botón 📅</b> unir con el Calendario: sus eventos salen bajo cada fecha de la nota como tareas <i>☐ 📅 10:30 Reunión</i> (clic en la casilla para tacharlos), y las líneas con hora que pongas bajo una fecha (<i>22/10</i> → <i>18:30 Dentista</i>) salen en él</div>
-  <div><b>Ctrl+Shift+P</b> posici&oacute;n: normal / encima / debajo</div>
-  <div style="margin-top:8px;opacity:.8">Repetir una tarea: añade <b style="min-width:0">@diario @semanal @mensual @lunes…@domingo @cada3d</b> en su línea.</div>
-  <div style="opacity:.6;margin-top:8px">(clic para cerrar)</div>
+  <div><b>Botón Tт</b> tamaño de letra e interlineado, para todas las notas (con − y + para afinar)</div>
+  <div><b>Ratón</b> arrastra la barra de arriba para mover la nota; los bordes la redimensionan. Cada nota se queda en el escritorio virtual donde la dejaste</div>
+  <div><b>F1</b> esta ayuda</div>
+
+  <h4>Sincronización y bandeja</h4>
+  <div><b>Clic en el icono de la bandeja</b> abre el lanzador; <b>clic derecho</b>: nueva nota, traer las notas a este escritorio, calendario, carpeta de sincronización, buscar actualizaciones y salir</div>
+  <div><b>Carpeta de sincronización</b> elige una carpeta de OneDrive (la misma en cada equipo). Cada equipo guarda su propio fichero y Post-It los une nota a nota, sin copias en conflicto. Es opcional: sin ella, tus notas se quedan en este equipo</div>
+  <div><b>Actualizaciones</b> al abrir, Post-It avisa si hay una versión nueva; tus notas y ajustes se conservan</div>
 </div>
 <script>
 const id=new URLSearchParams(location.search).get('id');
@@ -408,7 +436,7 @@ const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head',
   'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyF':'fold','cs:KeyO':'sort','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyL':()=>api.lanz('menu'),'c:KeyM':()=>api.min(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
-  'F1':toggleHelp,'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
+  'F1':toggleHelp,'Escape':()=>{help.style.display='none'},'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
   if(slN&&slash.style.display=='block'){ // menú «/» abierto: él se queda las flechas, Intro/Tab y Esc

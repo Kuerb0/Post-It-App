@@ -52,26 +52,50 @@ fs.writeFileSync(path.join(dir, 'agenda-PC3.json'), '{ roto');
 const ag = S.leerAgenda(dir, hoy);
 assert.deepStrictEqual(ag.map(e => e.id), ['cal:b', 'cal:a']);
 
-// --- carpeta: la guardada manda; si no, se detecta la hermana de la app; si no, se crea
-const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'raiz-')), app = path.join(raiz, 'Post-It'); fs.mkdirSync(app);
-let c = S.carpetaCompartida({ raiz: app, entorno: {}, hogar: raiz });
-assert.deepStrictEqual([c.origen, c.ruta], ['creada', path.join(raiz, 'AgendaCompartida')]);
-c = S.carpetaCompartida({ raiz: app, entorno: {}, hogar: raiz });
-assert.strictEqual(c.origen, 'detectada');
-c = S.carpetaCompartida({ guardada: dir, raiz: app, entorno: {}, hogar: raiz });
-assert.deepStrictEqual([c.origen, c.ruta], ['guardada', dir]);
-// --- notas: viven junto a la carpeta compartida (OneDrive\Post-It\notes.json) para sincronizarse; sin carpeta, junto a la app
-const od = path.join(raiz, 'OneDrive'), local = path.join(raiz, 'Programs', 'PostIt', 'app', 'notes.json');
-assert.strictEqual(S.rutaNotas({ carpeta: path.join(od, 'AgendaCompartida'), local }), path.join(od, 'Post-It', 'notes.json'));
-assert.strictEqual(S.rutaNotas({ carpeta: null, local }), local);
-fs.mkdirSync(path.dirname(local), { recursive: true }); fs.writeFileSync(local, '[{"id":"a"}]');
-const dest = path.join(od, 'Post-It', 'notes.json');
-assert.strictEqual(S.migrarNotas(dest, local), true);                          // primera vez: se llevan las de la app
-assert.strictEqual(fs.readFileSync(dest, 'utf8'), '[{"id":"a"}]');
-fs.writeFileSync(dest, '[{"id":"otro-equipo"}]');
-assert.strictEqual(S.migrarNotas(dest, local), false);                         // ya había unas (de otro equipo): mandan esas
-assert.strictEqual(fs.readFileSync(dest, 'utf8'), '[{"id":"otro-equipo"}]');
-assert.strictEqual(S.migrarNotas(local, local), false);                        // sin carpeta compartida: no hay nada que mover
+// --- carpeta propuesta: el OneDrive del equipo, subcarpeta «Post-It»; sin OneDrive, nada
+const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'raiz-'));
+assert.strictEqual(S.carpetaOneDrive({ entorno: {}, hogar: raiz }), null);
+fs.mkdirSync(path.join(raiz, 'OneDrive'));
+assert.strictEqual(S.carpetaOneDrive({ entorno: {}, hogar: raiz }), path.join(raiz, 'OneDrive', 'Carpeta de Sincronización'));
+assert.strictEqual(S.carpetaOneDrive({ entorno: { OneDrive: raiz }, hogar: '/no' }), path.join(raiz, 'Carpeta de Sincronización'));
+// --- sync entre equipos: cada uno escribe su fichero y se fusionan por nota (gana el cambio más reciente); los borrados no resucitan
+const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-sync-'));
+const A = S.estadoNuevo(), B = S.estadoNuevo();
+let na = [{ id: '1', html: 'uno' }, { id: '2', html: 'dos' }];
+S.marcar(A, na, 100);                                                              // PC A crea dos notas
+S.escribirSync(sd, { notas: na, borradas: [] }, 'A');
+let f = S.fusionar(S.leerSync(sd));
+assert.deepStrictEqual(f.notas.map(n => [n.id, n.mod]), [['1', 100], ['2', 100]]);
+let nb = f.notas.map(n => ({ ...n })); S.iniciarEstado(B, nb, f.borradas);          // PC B las recibe sin cambiarlas
+assert.strictEqual(S.marcar(B, nb, 150).length, 0); assert.deepStrictEqual(nb.map(n => n.mod), [100, 100]);
+nb[0].html = 'uno editado en B'; S.marcar(B, nb, 200);                              // B edita la 1 …
+const borr = S.marcar(A, na = na.filter(n => n.id !== '2'), 300);                   // … y A borra la 2
+assert.deepStrictEqual(borr, [{ id: '2', mod: 300 }]);
+S.escribirSync(sd, { notas: nb, borradas: [] }, 'B'); S.escribirSync(sd, { notas: na, borradas: borr }, 'A');
+f = S.fusionar(S.leerSync(sd));
+assert.deepStrictEqual(f.notas.map(n => [n.id, n.html]), [['1', 'uno editado en B']]);   // la 1 con la edición de B; la 2 borrada aunque B aún la tenga
+assert.deepStrictEqual(f.borradas, [{ id: '2', mod: 300 }]);
+// misma nota editada en los dos: gana la última · una nota recreada después del borrado vuelve
+const dosEdit = S.fusionar([{ notas: [{ id: 'x', html: 'a', mod: 5 }] }, { notas: [{ id: 'x', html: 'b', mod: 9 }] }]);
+assert.strictEqual(dosEdit.notas[0].html, 'b');
+assert.strictEqual(S.fusionar([{ notas: [{ id: 'x', mod: 10 }] }, { notas: [], borradas: [{ id: 'x', mod: 4 }] }]).notas.length, 1);
+// notes.json de la 1.x y sus copias en conflicto entran como mod 0: cualquier cambio posterior (o borrado) las supera
+fs.writeFileSync(path.join(sd, 'notes.json'), JSON.stringify([{ id: '1', html: 'viejo' }, { id: '9', html: 'solo en la 1.x' }]));
+fs.writeFileSync(path.join(sd, 'notes-Portatil_Mario-2.json'), '[{"id":"8","html":"copia en conflicto"}]');
+fs.writeFileSync(path.join(sd, 'postit-roto.json'), '{ roto');
+f = S.fusionar(S.leerSync(sd));
+assert.deepStrictEqual(f.notas.map(n => n.id).sort(), ['1', '8', '9']);
+assert.strictEqual(f.notas.find(n => n.id === '1').html, 'uno editado en B');
+// ajustes (enlace ICS) y colores recordados: gana el ajuste más reciente, los colores se suman; el propio fichero se puede excluir
+S.escribirSync(sd, { notas: [], ajustes: { ics: 'https://nuevo', mod: 50 }, colores: { categorias: { Salud: '#e5533d' }, titulos: {} } }, 'C');
+S.escribirSync(sd, { notas: [], ajustes: { ics: 'https://viejo', mod: 10 }, colores: { categorias: {}, titulos: { cita: '#3a86ff' } } }, 'D');
+f = S.fusionar(S.leerSync(sd));
+assert.deepStrictEqual([f.ajustes.ics, f.colores.categorias.Salud, f.colores.titulos.cita], ['https://nuevo', '#e5533d', '#3a86ff']);
+assert.ok(!S.leerSync(sd, { menos: S.ficheroEquipo(sd, 'C') }).some(x => x.ajustes && x.ajustes.ics === 'https://nuevo'));
+// la firma cambia cuando alguien guarda
+const propio = S.ficheroEquipo(sd, 'E'), f0 = S.firmaSync(sd, propio);
+S.escribirSync(sd, { notas: [{ id: 'z', mod: 1 }] }, 'E'); assert.strictEqual(S.firmaSync(sd, propio), f0);       // lo que escribo yo no cuenta
+S.escribirSync(sd, { notas: [{ id: 'z', mod: 1 }] }, 'F'); assert.notStrictEqual(S.firmaSync(sd, propio), f0);    // lo que escribe otro, sí
 // --- alarmas: vencidas y no sonadas · sonadas ya no · futuras no · de hace más de un día se dan por sonadas sin avisar · la etiqueta ⏰ no es una actividad del Calendario
 const ahoraA = new Date(2026, 9, 26, 18, 30).getTime();
 const conAlarmas = [{ id: 'a', alarms: [{ t: '2026-10-26T18:30', txt: 'Dentista' }, { t: '2026-10-26T19:00', txt: 'Futura' }, { t: '2026-10-24T09:00', txt: 'Vieja' }] }, { id: 'b' }];
@@ -90,4 +114,7 @@ const carpetaG = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-agenda-'));
 fs.writeFileSync(path.join(carpetaG, 'agenda-PCX.json'), JSON.stringify({ version: 1, equipo: 'PCX', eventos: [{ id: 'lejos', titulo: 'Lejos', inicio: '2027-01-27T10:00:00', fin: '2027-01-27T11:00:00', todo_dia: false }] }));
 assert.deepStrictEqual(S.leerAgenda(carpetaG, hoy, 127).map(e => e.id), ['lejos']);
 assert.deepStrictEqual(S.leerAgenda(carpetaG, hoy, 40), []);
+// --- versiones: 2.0.0 > 1.12.1 > 1.9 · iguales no son mayores
+assert.ok(S.versionMayor('2.0.0', '1.12.1') && S.versionMayor('1.12.1', '1.9') && S.versionMayor('1.0.1', '1.0'));
+assert.ok(!S.versionMayor('1.12.1', '1.12.1') && !S.versionMayor('1.9', '1.12.1'));
 console.log('TEST OK');
