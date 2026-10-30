@@ -512,7 +512,7 @@ if ($App.SinArranque) { $ckArr.Visible = $false }      # la propia app se regist
 # pagina 5 (Post-It): sincronizar las notas entre equipos. Carpeta propia, distinta de la de instalacion: el programa es local, las notas viajan.
 function Carpeta-OneDrive {      # la carpeta que ya usaba una version anterior, o «Carpeta de Sincronización» dentro del OneDrive de este equipo
     try { $c = Get-Content -LiteralPath (Join-Path $env:APPDATA 'post-it\sync.json') -Raw -Encoding UTF8 | ConvertFrom-Json; if ($c.sync -and (Test-Path -LiteralPath $c.sync)) { return $c.sync }; if ($c.notas) { return (Split-Path -Parent $c.notas) } } catch { }
-    foreach ($r in @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial, (Join-Path $env:USERPROFILE 'OneDrive'))) { if ($r -and (Test-Path -LiteralPath $r)) { return (Join-Path $r 'Carpeta de Sincronización') } }
+    foreach ($r in @($env:OneDriveConsumer, $env:OneDrive, $env:OneDriveCommercial, (Join-Path $env:USERPROFILE 'OneDrive'))) { if ($r -and (Test-Path -LiteralPath $r)) { return (Join-Path $r 'Carpeta de Sincronización') } }
     return $null
 }
 $od0 = Carpeta-OneDrive
@@ -1155,7 +1155,7 @@ app.whenReady().then(()=>{
 
 });
 :::END
-:::BEGIN sync.js|text|321a9f22f930d989d64ed2a5ec00ca1a881b8bfba7aa534572872f3630d98377
+:::BEGIN sync.js|text|a4da60c2c32448c5f1dc1b4d7dc31ae9efce73feb8fec7e133d4dc0da62f6ec5
 // Sincronización entre equipos y enlace con el Calendario por una carpeta compartida (la de OneDrive), sin servidor ni cuenta.
 //  · notas-<EQUIPO>.json  lo escribe Post-It: las líneas de las notas que llevan hora (se ven en el Calendario)
 //  · agenda-<EQUIPO>.json lo escribe el Calendario: sus próximos eventos (salen bajo cada fecha de las notas unidas)
@@ -1245,7 +1245,7 @@ function alarmasVencidas(notas, sonadas, ahora = Date.now()) {
 const NOMBRE_SYNC = 'Carpeta de Sincronización';
 function carpetaOneDrive({ entorno = process.env, hogar = os.homedir() } = {}) { // carpeta propuesta dentro del OneDrive del equipo, o null
   const existe = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  const raices = ['OneDrive', 'OneDriveConsumer', 'OneDriveCommercial'].map(k => entorno[k]).filter(Boolean).concat(path.join(hogar, 'OneDrive'));
+  const raices = ['OneDriveConsumer', 'OneDrive', 'OneDriveCommercial'].map(k => entorno[k]).filter(Boolean).concat(path.join(hogar, 'OneDrive'));
   const raiz = raices.find(existe);
   return raiz ? path.join(raiz, NOMBRE_SYNC) : null;
 }

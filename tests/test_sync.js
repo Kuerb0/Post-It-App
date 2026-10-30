@@ -58,6 +58,9 @@ assert.strictEqual(S.carpetaOneDrive({ entorno: {}, hogar: raiz }), null);
 fs.mkdirSync(path.join(raiz, 'OneDrive'));
 assert.strictEqual(S.carpetaOneDrive({ entorno: {}, hogar: raiz }), path.join(raiz, 'OneDrive', 'Carpeta de Sincronización'));
 assert.strictEqual(S.carpetaOneDrive({ entorno: { OneDrive: raiz }, hogar: '/no' }), path.join(raiz, 'Carpeta de Sincronización'));
+// con dos OneDrive (personal y de la organización) se propone el personal
+const org = fs.mkdtempSync(path.join(os.tmpdir(), 'org-'));
+assert.strictEqual(S.carpetaOneDrive({ entorno: { OneDrive: org, OneDriveConsumer: raiz }, hogar: '/no' }), path.join(raiz, 'Carpeta de Sincronización'));
 // --- sync entre equipos: cada uno escribe su fichero y se fusionan por nota (gana el cambio más reciente); los borrados no resucitan
 const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'postit-sync-'));
 const A = S.estadoNuevo(), B = S.estadoNuevo();

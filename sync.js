@@ -87,7 +87,7 @@ function alarmasVencidas(notas, sonadas, ahora = Date.now()) {
 const NOMBRE_SYNC = 'Carpeta de Sincronización';
 function carpetaOneDrive({ entorno = process.env, hogar = os.homedir() } = {}) { // carpeta propuesta dentro del OneDrive del equipo, o null
   const existe = p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  const raices = ['OneDrive', 'OneDriveConsumer', 'OneDriveCommercial'].map(k => entorno[k]).filter(Boolean).concat(path.join(hogar, 'OneDrive'));
+  const raices = ['OneDriveConsumer', 'OneDrive', 'OneDriveCommercial'].map(k => entorno[k]).filter(Boolean).concat(path.join(hogar, 'OneDrive'));
   const raiz = raices.find(existe);
   return raiz ? path.join(raiz, NOMBRE_SYNC) : null;
 }
