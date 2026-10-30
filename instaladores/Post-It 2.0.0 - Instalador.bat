@@ -175,7 +175,7 @@ $Trabajo = {
         if ($antes) {
             $copia = Join-Path $dest ('anteriores\{0}_{1:yyyyMMdd-HHmmss}' -f $antes, (Get-Date))
             New-Item -ItemType Directory -Path $copia -Force | Out-Null      # Copy-Item de un fichero no crea la carpeta destino
-            foreach ($c in $App.Programa) { $o = Join-Path $dest $c; if (Test-Path -LiteralPath $o) { Copy-Item -LiteralPath $o -Destination (Join-Path $copia $c) -Recurse -Force } }
+            foreach ($c in $App.Programa) { $orig = Join-Path $dest $c; if (Test-Path -LiteralPath $orig) { Copy-Item -LiteralPath $orig -Destination (Join-Path $copia $c) -Recurse -Force } }
             Log "Versión anterior ($antes) guardada en $copia"
         }
         $enc = New-Object Text.UTF8Encoding($false)
@@ -380,10 +380,10 @@ $Trabajo = {
             Set-ItemProperty -Path $k -Name NoModify -Value 1 -Type DWord; Set-ItemProperty -Path $k -Name NoRepair -Value 1 -Type DWord
             # entradas viejas del mismo programa y carpeta (instaladores antiguos usaban otro nombre de clave, p. ej. «PostIt»): se quitan para que no salga duplicado en Aplicaciones
             $un = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
-            foreach ($o in @(Get-ChildItem -Path $un -ErrorAction SilentlyContinue)) {
-                if ($o.PSChildName -eq $App.Nombre) { continue }
-                $p = Get-ItemProperty -Path $o.PSPath -ErrorAction SilentlyContinue
-                if ($p.Publisher -eq 'Kuerb0' -and $p.DisplayName -like "$($App.Nombre)*" -and $p.InstallLocation -and ($p.InstallLocation.TrimEnd('\') -ieq $dest.TrimEnd('\'))) { Remove-Item -Path $o.PSPath -Recurse -Force; Log "Entrada antigua quitada de Aplicaciones: $($o.PSChildName) ($($p.DisplayName))" }
+            foreach ($ent in @(Get-ChildItem -Path $un -ErrorAction SilentlyContinue)) {
+                if ($ent.PSChildName -eq $App.Nombre) { continue }
+                $p = Get-ItemProperty -Path $ent.PSPath -ErrorAction SilentlyContinue
+                if ($p.Publisher -eq 'Kuerb0' -and $p.DisplayName -like "$($App.Nombre)*" -and $p.InstallLocation -and ($p.InstallLocation.TrimEnd('\') -ieq $dest.TrimEnd('\'))) { Remove-Item -Path $ent.PSPath -Recurse -Force; Log "Entrada antigua quitada de Aplicaciones: $($ent.PSChildName) ($($p.DisplayName))" }
             }
             Log "Desinstalador: $dd"; Paso 6 'ok'
         }
