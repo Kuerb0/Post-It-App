@@ -19,6 +19,7 @@ function lineas(html) {
   html = String(html || '')
     .replace(/<span[^>]*class=["']?(?:back|rep|alarm)[^>]*>[\s\S]*?<\/span>/gi, '')    // «vuelve…», el icono de periódica y las etiquetas de alarma (su hora no es una actividad)
     .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<table[\s\S]*?<\/table>/gi, '')                                         // las tablas son de la nota, no del Calendario
     .replace(/<div[^>]*class=["']?cal\b[^>]*>[\s\S]*?<\/div>/gi, '');              // eventos del Calendario pintados en la nota: no vuelven a él
   return html.split(/<\/(?:div|li|h3|p)>|<br\s*\/?>/i).map(seg => {
     const caja = /<input[^>]*type=["']?checkbox["']?[^>]*>/i.exec(seg);

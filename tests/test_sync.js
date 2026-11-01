@@ -15,6 +15,9 @@ let r = ext('<div>18:00 Antes de la fecha</div><div><b>Martes 20/10</b></div><di
 assert.deepStrictEqual(r.map(i => [i.titulo, i.inicio, i.fin, i.hecho]), [['Dentista', '2026-10-20T18:30:00', null, false]]);
 assert.strictEqual(ext('<div>Cena 22/10 21:00</div><div>mañana 8:15 gimnasio</div>').length, 0);   // sin cabecera de fecha: nada
 
+// --- las tablas son de la nota: una hora dentro de una tabla no va al Calendario
+assert.strictEqual(ext('<div>Martes 20/10</div><table><tbody><tr><td>18:30 Dentista</td><td>20/10</td></tr></tbody></table><div>19:00 Cena</div>').map(i => i.titulo).join(), 'Cena');
+
 // --- rango de horas, tarea marcada, otras formas de hora, cabecera como la de las notas reales
 const cab = '<div class="datehead"><span>Miércoles </span><b>21-10</b></div>';
 assert.deepStrictEqual(ext(cab + '<div><input type="checkbox" checked> Reunión 10:00-11:30</div>').map(i => [i.titulo, i.inicio, i.fin, i.hecho]),

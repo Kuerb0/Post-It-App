@@ -26,6 +26,26 @@ button.on{opacity:1;background:#0003}
 #ed [data-d]{font-weight:700} /* cabecera de fecha detectada (paintDias): todo en negrita, día de la semana incluido */
 #est{display:none;flex:none;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:3px 8px;background:#0002;font-size:13px}#est input{width:90px;vertical-align:middle}#est span{min-width:26px}#est button{width:auto;padding:0 8px;font-size:13px;opacity:.85}#est button[data-r]{width:22px;padding:0;font-size:16px;line-height:20px;height:22px;border-radius:4px;background:#0002}#est input{width:70px;margin:0 2px}#est .g{display:flex;align-items:center;gap:4px;white-space:nowrap}
 #ed [data-d]::after{content:'  ·  ' attr(data-d);font-size:.75em;font-weight:400;opacity:.6}#ed [data-d=hoy]::after{opacity:1;font-weight:700}
+/* tablas: columnas con tipo (th[data-k]: f fecha · d días); la fila toma el color --rc de su regla (paintTablas); p = pasada; oc = oculta (límite/filtro/pasadas) */
+#ed table{border-collapse:collapse;margin:4px 0;width:calc(100% - 26px)} /* el margen de la derecha es para la tuerca */
+#ed td,#ed th{border:1px solid #0004;padding:2px 6px;min-width:36px;vertical-align:top}
+#ed th{background:#0002;text-align:left}#ed th[data-s]::after{content:' ' attr(data-s);opacity:.6}
+#ed caption{font-weight:700;text-align:left;padding:2px 0}
+#ed tr[data-c] td{background-color:color-mix(in srgb,var(--rc) 55%,transparent)}
+#ed tr[data-c=p]{opacity:.5}#ed tr[data-c=p] td{background-color:transparent}
+#ed tr.oc{display:none}
+#ed tr[data-p] td:first-child::before{content:'🔁 ';font-size:.85em;opacity:.7}
+#ed td[data-f]{padding-right:22px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-opacity='.5' stroke-width='2' stroke-linecap='round'><rect width='18' height='18' x='3' y='4' rx='2'/><path d='M8 2v4M16 2v4M3 10h18'/></svg>");background-repeat:no-repeat;background-position:right 4px center}
+#ed td[contenteditable=false]::after{content:attr(data-d);font-size:1em;opacity:1}#ed td[contenteditable=false]{font-weight:400;cursor:default}#ed td[contenteditable=false] br{display:none}
+#ed .mas{font-size:.85em;opacity:.7;cursor:pointer;user-select:none;margin:-2px 0 4px}
+#gear{position:fixed;z-index:4;display:none;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;background:#0002;opacity:.7}#gear.on{background:#0a84ff;color:#fff;opacity:1}
+#tp{position:fixed;z-index:6;background:#262626;color:#eee;border-radius:6px;box-shadow:0 3px 12px #0008;font-size:12px;width:260px;max-height:calc(100vh - 12px);overflow:auto;padding:4px}
+#tp div[data-a]{padding:3px 8px;border-radius:4px;cursor:pointer}#tp div[data-a]:hover{background:#0a84ff}
+#tp .hd{color:#9be7ff;font-size:11px;letter-spacing:.05em;text-transform:uppercase;border-top:1px solid #555;margin:5px 0 3px;padding:5px 8px 0}#tp .hd:first-child{border:0;margin-top:0}
+#tp label,#tp .rl{display:flex;align-items:center;gap:5px;padding:2px 8px}#tp label>input:not([type=number]){flex:1}
+#tp input,#tp select{font:inherit;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:1px 4px;color-scheme:dark;min-width:0}
+#tp input[type=number]{width:52px}#tp input[type=color]{width:30px;height:20px;padding:0}#tp .rl b{cursor:pointer;opacity:.6;margin-left:auto}
+#tp .ch{display:inline-block;margin:2px;padding:1px 8px;border-radius:9px;color:#222;cursor:pointer;border:2px solid transparent}#tp .ch.on{border-color:#fff}
 #ed ul,#ed ol{margin:0;padding-left:22px}
 #ed blockquote{margin:0 0 0 18px!important;padding:0!important;border:0!important}
 #ed.cols{overflow:hidden;overflow-x:auto;column-fill:auto;column-gap:18px;column-rule:1px solid #0002}
@@ -75,7 +95,9 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-indent viewBox="0 0 24 24"><path d="M3 8l4 4-4 4M21 12H11M21 6H11M21 18H11"/></symbol>
 <symbol id=i-clear viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21M22 21H7M5 11l9 9"/></symbol>
 <symbol id=i-refresh viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></symbol>
-<symbol id=i-textsize viewBox="0 0 24 24"><path d="M3 7V5h13v2M10 5v14M12 19H8M15 13v-1h6v1M18 12v7M17 19h2"/></symbol>
+<symbol id=i-gear viewBox="0 0 24 24"><circle cx=12 cy=12 r=3 /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+<symbol id=i-tableviewBox="0 0 24 24"><rect width=18 height=18 x=3 y=3 rx=2 /><path d="M3 9h18M3 15h18M12 3v18"/></symbol>
+<symbol id=i-textsizeviewBox="0 0 24 24"><path d="M3 7V5h13v2M10 5v14M12 19H8M15 13v-1h6v1M18 12v7M17 19h2"/></symbol>
 </defs></svg>
 
 <div id=bar>
@@ -96,6 +118,8 @@ button.on{opacity:1;background:#0003}
 <div id=est><span class=g>Letra <button data-r=fsr data-m=- title="Menos">−</button><input type=range id=fsr min=9 max=30 step=1><button data-r=fsr data-m=+ title="Más">+</button><span id=fsv></span></span><span class=g>Interlineado <button data-r=lhr data-m=- title="Menos">−</button><input type=range id=lhr min=1 max=2.6 step=.05><button data-r=lhr data-m=+ title="Más">+</button><span id=lhv></span></span><button id=estr>Restablecer</button></div>
 <div id=ed contenteditable spellcheck=false></div>
 <div id=dts>Anadir fechas: <button data-n=2>+2</button><button data-n=3>+3</button><button data-n=5>+5</button><button data-n=7>+7</button><button data-n=14>+14</button><button data-n=30>+30</button> dias</div>
+<button id=gear title="Ajustes de la tabla (o clic derecho en una celda)"><svg><use href="#i-gear"/></svg></button>
+<div id=tp style="display:none"></div><input type=date id=dpk style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none">
 <div id=tb>
   <button data-c=bold title="Negrita (Ctrl+B)"><svg><use href="#i-bold"/></svg></button>
   <button data-c=italic title="Cursiva (Ctrl+I)"><svg><use href="#i-italic"/></svg></button>
@@ -106,6 +130,7 @@ button.on{opacity:1;background:#0003}
   <button data-c=task title="Tarea ☐ (Ctrl+Enter, o escribe '- ' / '[] ')"><svg><use href="#i-task"/></svg></button>
   <button data-c=repeat title="Periodica: copia la linea como tarea bajo las fechas siguientes (14/10, 15/10...). Escribe en la linea 'cada 2 lunes', 'cada 3 dias'... para elegir cuando (Ctrl+Shift+R)"><svg><use href="#i-repeat"/></svg></button>
   <button data-c=dates title="Anadir varias fechas (Ctrl+Shift+D)"><svg><use href="#i-cal"/></svg></button>
+  <button data-c=table title="Tabla de eventos: escribe una fecha en una celda y la fila se colorea según los días que faltan (Ctrl+Shift+T)"><svg><use href="#i-table"/></svg></button>
   <button data-c=ul title="Viñetas (Ctrl+Shift+8)"><svg><use href="#i-ul"/></svg></button>
   <button data-c=ol title="Numerada (Ctrl+Shift+7)"><svg><use href="#i-ol"/></svg></button>
   <button data-c=fold title="Carpeta: la línea pasa a ser un título que esconde/muestra lo de debajo, hasta la siguiente carpeta (Ctrl+Shift+F). Clic en el título para abrir o cerrar"><svg><use href="#i-fold"/></svg></button>
@@ -115,7 +140,7 @@ button.on{opacity:1;background:#0003}
   <button data-c=clear title="Quitar formato (Ctrl+Espacio)"><svg><use href="#i-clear"/></svg></button>
 </div>
 <div id=slash></div>
-<div id=alp><input type=datetime-local id=alt><button id=alok>OK</button><button id=alno title="Quitar la alarma">Quitar</button></div>
+<div id=alp style="display:none"><input type=datetime-local id=alt><button id=alok>OK</button><button id=alno title="Quitar la alarma">Quitar</button></div>
 <div id=help onclick="help.style.display='none'">
   <div class=hd>Atajos y ayuda <span>(Esc o clic para cerrar · rueda para bajar)</span></div>
 
@@ -137,6 +162,12 @@ button.on{opacity:1;background:#0003}
   <div><b>* ␣ &nbsp;/&nbsp; 1. ␣</b> viñetas / numerada (o Ctrl+Shift+8 / 7)</div>
   <div><b>@diario @semanal @mensual @lunes…@domingo @cada3d</b> en una tarea: al marcarla se queda hecha y muestra <i>↻ vuelve 21/10</i>; ese día se desmarca sola</div>
   <div><b>Ctrl+Shift+R</b> línea periódica: se copia como tarea bajo las fechas que haya más abajo. Reglas escritas en la línea: <i>cada 2 lunes</i>, <i>cada 3 días</i>, <i>cada semana</i>, <i>cada 2 semanas</i>, <i>cada mes</i>. Sin regla, bajo todas las fechas. Clic en su icono para quitarla</div>
+
+  <h4>Tablas</h4>
+  <div><b>Ctrl+Shift+T</b> &nbsp;o&nbsp; <b>/</b> Tabla: crea una tabla (Evento · Fecha · Faltan). Cada columna tiene un tipo (clic derecho en una celda › Tipo de esta columna): <i>Texto</i>, <i>Fecha</i> (se escribe, <i>05/11</i> o <i>05/11/2026</i>, o se elige con el calendario de su icono) y <i>Días faltantes</i> (se calcula sola)</div>
+  <div><b>Color:</b> la fila se pinta según los días de su primera columna Fecha (rojo hoy, naranja ≤3, amarillo ≤7, verde ≤30, azul más allá; las pasadas, apagadas). Los días y colores son de cada tabla y se editan en la tuerca</div>
+  <div><b>Tuerca ⚙ o clic derecho</b> ajustes de la tabla: título, columna de orden, filas visibles («▸ N más» para ver el resto), qué hacer con las pasadas, reglas de color y filtro por color (el filtro no se guarda). Con clic derecho, además: insertar y eliminar filas y columnas, y 🔁 repetir cada año (la fila vuelve sola sumando un año)</div>
+  <div><b>Tab / Shift+Tab</b> celda siguiente / anterior (en la última, nace una fila) · <b>Intro</b> celda de abajo. Mientras escribes en una tabla se ve entera; el orden y el límite se aplican al salir de ella, al abrir la nota y al cambiar de día</div>
 
   <h4>Fechas, alarmas y carpetas</h4>
   <div><b>Una fecha sola</b> en una línea (<i>Lunes 02/11</i>, <i>14/10</i>, <i>14-10-2027</i>) es una cabecera: sale en negrita con «hoy», «mañana» o «faltan N días»; bajo ella pones las tareas de ese día. Sin año, se entiende el próximo</div>
@@ -214,13 +245,13 @@ function sortFolds(){
   ed.append(...sorted);paintDias();later();
 }
 // «faltan N días» junto a cada cabecera de fecha: atributo data-d que pinta el ::after (no es texto: ni se guarda ni se sincroniza)
+// Las tablas (paintTablas) usan la misma etiqueta en su columna «días»
+const lbl=n=>n==0?'hoy':n==1?'mañana':n==-1?'ayer':n>0?`faltan ${n} días`:`hace ${-n} días`;
 function paintDias(){
-  ed.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));
+  ed.querySelectorAll('[data-d],[data-c]').forEach(x=>{x.removeAttribute('data-d');x.removeAttribute('data-c')});
   const hoy=new Date();hoy.setHours(12,0,0,0);
-  for(const [h,d] of headDates()){
-    const n=Math.round((d-hoy)/864e5);
-    h.dataset.d=n==0?'hoy':n==1?'mañana':n==-1?'ayer':n>0?`faltan ${n} días`:`hace ${-n} días`;
-  }
+  for(const [h,d] of headDates())h.dataset.d=lbl(Math.round((d-hoy)/864e5));
+  paintTablas(hoy);
 }
 // ── Alarmas: «/» abre un menú de opciones; «Alarma» pide fecha y hora (se escribe o se elige) y deja una etiqueta ⏰ en la línea.
 // Con cada guardado se mandan al programa principal ({t, txt}), que las hace sonar aunque la nota esté cerrada.
@@ -236,7 +267,8 @@ const alarms=()=>[...ed.querySelectorAll('.alarm')].map(s=>{
   const k=(s.closest('div,li,h3,p')||s.parentNode).cloneNode(true);k.querySelectorAll('.alarm,.back,.rep,.cal').forEach(x=>x.remove());
   return{t:s.dataset.t,txt:k.textContent.trim().slice(0,80)||'Alarma'};
 });
-let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal').forEach(x=>x.remove());k.querySelectorAll('[data-d]').forEach(x=>x.removeAttribute('data-d'));api.save(id,k.innerHTML,alarms());title()}; // los eventos del Calendario no se guardan: se pintan al abrir
+let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal,.mas').forEach(x=>x.remove());k.querySelectorAll('[data-d],[data-c],[data-f],[data-s]').forEach(x=>{for(const a of['data-d','data-c','data-f','data-s'])x.removeAttribute(a)});k.querySelectorAll('tr').forEach(x=>{x.removeAttribute('style');x.removeAttribute('class')}); // lo derivado de las tablas (colores, días, filas ocultas) se recalcula al abrir
+api.save(id,k.innerHTML,alarms());title()}; // los eventos del Calendario no se guardan: se pintan al abrir
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
 const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
@@ -249,7 +281,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';sortFolds();refold();paintDias();paintAlarms();
+  ed.innerHTML=n.html||'<div><br></div>';sortFolds();refold();if(sortTablas())later();paintDias();paintAlarms();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -401,6 +433,196 @@ function addDays(n){
   first.scrollIntoView({block:'nearest'});ed.focus();later();
 }
 
+// ── Tablas. Cada columna tiene un tipo (th[data-k]: f = Fecha, d = Días faltantes, sin tipo = texto). La fecha se escribe o se elige en un calendario;
+// «días» se calcula y no se guarda. Los ajustes van en el atributo data-cfg de la tabla ({rules:[[días,color]…], otros, sort:[col,±1], lim, past:'dim'|'hide'|'end'}),
+// así viajan con la nota. La fila toma el color de la regla de su primera columna Fecha; el filtro por color es solo de esta sesión (flt).
+// Mientras escribes en una tabla se ve entera; el orden, el límite de filas y «ocultar pasadas» se aplican al salir de ella, al abrir la nota y al cambiar de día.
+const RULES=[[0,'#ff3b30'],[3,'#ff9500'],[7,'#ffd60a'],[30,'#34c759']],OTROS='#0a84ff';
+const raw=t=>{try{return JSON.parse(t.dataset.cfg||'{}')||{}}catch{return{}}};
+const cfg=t=>({rules:RULES,otros:OTROS,past:'dim',sort:null,lim:0,...raw(t)});
+const cfgSet=(t,p)=>t.dataset.cfg=JSON.stringify({...raw(t),...p});
+const hdr=t=>{const r=t.rows[0];return r&&[...r.cells].every(c=>c.tagName=='TH')?r:null};
+const body=t=>[...t.rows].filter(r=>r!=hdr(t));
+const types=t=>hdr(t)?[...hdr(t).cells].map(c=>c.dataset.k||''):[];
+const fc=(ty,j)=>ty.lastIndexOf('f',j)>=0?ty.lastIndexOf('f',j):ty.indexOf('f'); // columna Fecha que alimenta la columna j (la suya, o la Fecha más cercana a su izquierda)
+const hoy12=()=>{const h=new Date();h.setHours(12,0,0,0);return h};
+const fmt=d=>pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const flt=new WeakMap(),abiertas=new WeakSet(); // filtro por color (sin guardar) · tablas con «N más» desplegado
+let lastT=null,gearT=null,tpT=null,tpC=null,dpCell=null;
+const cellOf=n=>{const c=(n?.nodeType==1?n:n?.parentElement)?.closest('td,th');return c&&ed.contains(c)?c:null};
+const tpOpen=()=>tp.style.display!='none';
+const curT=()=>document.activeElement==ed&&!tpOpen()?cellOf(getSelection().anchorNode)?.closest('table')||null:null; // la tabla donde estás escribiendo
+
+// fecha de una celda (solo si la celda es una fecha). Sin año: la próxima vez que llegue ese día (periódica) o, como las cabeceras, la de este año salvo que pasara hace más de medio año
+function dateOf(c,per,hoy){
+  const m=DATE.exec(text(c));if(!m)return null;
+  const d=new Date(m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):hoy.getFullYear(),m[2]-1,+m[1],12);
+  if(d.getMonth()!=m[2]-1)return null; // 31/02…
+  if(!m[3]&&(per?d<hoy:hoy-d>183*864e5))d.setFullYear(d.getFullYear()+1);
+  return d;
+}
+// pinta tipos de columna, días, colores, filas ocultas y «N más» (todo derivado: no se guarda, ver sv)
+function paintTablas(hoy){
+  ed.querySelectorAll('.mas').forEach(x=>x.remove());
+  const live=curT();
+  for(const t of ed.querySelectorAll('table')){
+    const C=cfg(t),ty=types(t),fi=ty.indexOf('f'),fl=flt.get(t),rows=body(t);
+    const R=C.rules.map(([d,c],i)=>({i,d,c})).sort((a,b)=>a.d-b.d),rule=n=>R.find(x=>n<=x.d)||{i:'o',c:C.otros};
+    [...(hdr(t)?.cells||[])].forEach((c,j)=>{c.removeAttribute('data-s');if(C.sort?.[0]==j)c.dataset.s=C.sort[1]>0?'↑':'↓'});
+    let shown=0,oculto=0;
+    for(const r of rows){
+      const per=r.hasAttribute('data-p'),d=fi>=0&&r.cells[fi]?dateOf(r.cells[fi],per,hoy):null,n=d&&Math.round((d-hoy)/864e5);
+      [...r.cells].forEach((c,j)=>{
+        c.removeAttribute('data-f');c.removeAttribute('data-d');
+        if(ty[j]=='f')c.dataset.f=1;
+        if(ty[j]=='d'){c.contentEditable=false;const x=r.cells[fc(ty,j)],dd=x&&dateOf(x,per,hoy);if(dd)c.dataset.d=lbl(Math.round((dd-hoy)/864e5))}
+        else if(c.getAttribute('contenteditable')=='false')c.removeAttribute('contenteditable');
+      });
+      r.removeAttribute('data-c');r.style.removeProperty('--rc');
+      if(d){const k=n<0?{i:'p'}:rule(n);r.dataset.c=k.i;if(k.c)r.style.setProperty('--rc',k.c)}
+      let oc=t!=live&&((C.past=='hide'&&n<0)||(fl?.size&&!fl.has(r.dataset.c)));
+      if(!oc&&t!=live&&C.lim&&!abiertas.has(t)&&shown>=C.lim){oc=true;oculto++}
+      if(!oc)shown++;
+      r.classList.toggle('oc',!!oc);
+    }
+    if(C.lim&&(oculto||abiertas.has(t)&&shown>C.lim))t.insertAdjacentHTML('afterend',`<div class=mas contenteditable=false>${abiertas.has(t)?'▾ mostrar solo '+C.lim:'▸ '+oculto+' más'}</div>`);
+  }
+  reGear();
+}
+// periódicas con año escrito: si ya pasó, se le suma un año hasta que vuelva a ser futura (ponytail: el 29/02 pasa a 01/03)
+function rollover(t,hoy){
+  const fi=types(t).indexOf('f');let ch=0;if(fi<0)return 0;
+  for(const r of body(t)){
+    const c=r.cells[fi],m=c&&r.hasAttribute('data-p')&&DATE.exec(text(c));if(!m||!m[3])continue;
+    const d=dateOf(c,0,hoy);if(!d||d>=hoy)continue;
+    while(d<hoy)d.setFullYear(d.getFullYear()+1);
+    c.textContent=fmt(d);ch=1;
+  }
+  return ch;
+}
+// renueva las periódicas y ordena por la columna elegida (sin fecha, al final); «pasadas al final» las baja. Devuelve si algo cambió
+function sortTabla(t,hoy=hoy12()){
+  const C=cfg(t),ty=types(t),fi=ty.indexOf('f');let ch=rollover(t,hoy);
+  const rows=body(t),antes=rows.slice(),[j,dir]=C.sort||[];
+  const dt=(r,k)=>{const c=r.cells[fc(ty,k)];return c?dateOf(c,r.hasAttribute('data-p'),hoy):null};
+  const kv=r=>{if(ty[j]=='f'||ty[j]=='d'){const d=dt(r,j);return d&&+d}const c=r.cells[j];return c?text(c)||null:null};
+  if(C.sort)rows.sort((a,b)=>{const x=kv(a),y=kv(b);if(x==null||y==null)return (x==null)-(y==null);return dir*(typeof x=='number'?x-y:x.localeCompare(y,'es',{numeric:true}))});
+  if(C.past=='end'){const p=r=>{const d=fi>=0&&r.cells[fi]&&dateOf(r.cells[fi],r.hasAttribute('data-p'),hoy);return d&&d<hoy?1:0};rows.sort((a,b)=>p(a)-p(b))}
+  if(rows.some((r,i)=>r!==antes[i])){rows.forEach(r=>r.parentNode.append(r));ch=1}
+  return ch;
+}
+const sortTablas=()=>{ // todas menos la que estás editando
+  const live=curT(),hoy=hoy12();let ch=0;
+  for(const t of ed.querySelectorAll('table'))if(t!==live&&sortTabla(t,hoy))ch=1;
+  return ch;
+};
+
+// tuerca flotante pegada a la tabla (hay un margen a su derecha para ella)
+function placeGear(t){gearT=t;reGear()}
+function reGear(){
+  const t=gearT;if(!t||!ed.contains(t)){gear.style.display='none';return}
+  const r=t.getBoundingClientRect(),e=ed.getBoundingClientRect();
+  gear.style.display=r.bottom>e.top+10&&r.top<e.bottom-10?'flex':'none';
+  gear.style.left=Math.min(r.right+2,innerWidth-24)+'px';gear.style.top=Math.max(r.top,e.top)+'px';
+  gear.classList.toggle('on',!!flt.get(t)?.size);
+}
+ed.onscroll=window.onresize=reGear;
+ed.onmousemove=e=>{const t=e.target.closest?.('table');if(t&&t!=gearT)placeGear(t)};
+gear.onmousedown=e=>{e.preventDefault();tpOpen()&&tpT==gearT?closeTp():openTp(gearT,null,gear.getBoundingClientRect())};
+ed.oncontextmenu=e=>{const c=cellOf(e.target);if(!c)return;e.preventDefault();openTp(c.closest('table'),c,{left:e.clientX,top:e.clientY,bottom:e.clientY})};
+
+// mini calendario de la columna Fecha: el icono de la celda abre el selector nativo y escribe dd/mm/aaaa
+function openDp(td){
+  dpCell=td;dpk.value=day(dateOf(td,0,hoy12())||new Date());
+  const r=td.getBoundingClientRect();dpk.style.left=r.left+'px';dpk.style.top=r.bottom+'px';dpk.focus({preventScroll:true});dpk.showPicker();
+}
+dpk.onchange=()=>{
+  const td=dpCell,[y,m,d]=dpk.value.split('-');dpCell=null;if(!td||!y)return;
+  td.textContent=d+'/'+m+'/'+y;ed.focus();put(td);paintDias();later();
+};
+dpk.onblur=()=>setTimeout(()=>dpCell=null,200); // 200 ms: el change llega antes y necesita la celda
+
+// panel de ajustes (tuerca o clic derecho en una celda; con celda trae también las acciones de fila y columna)
+function openTp(t,c,r){tpT=t;tpC=c;drawTp();showAt(tp,'block',r)}
+function closeTp(){tp.style.display='none';tpT=tpC=null;sortTablas();paintDias();later()}
+function drawTp(){
+  const t=tpT,C=cfg(t),h=hdr(t),cols=h?[...h.cells]:[],x=tpC?.cellIndex,ty=types(t),ht=h&&tpC?.parentElement==h;
+  const o=(v,l,s)=>`<option value="${v}"${s?' selected':''}>${l}</option>`,A=(a,l,e='')=>`<div data-a=${a}${e}>${l}</div>`;
+  const R=C.rules.map(([d,c],i)=>({i,d,c})).sort((a,b)=>a.d-b.d),fl=flt.get(t)||new Set();
+  const chip=(id,l,c)=>`<span class="ch${fl.has(String(id))?' on':''}" data-a=ch data-id=${id} style="background:${c}">${l}</span>`;
+  tp.innerHTML=(tpC?
+    '<div class=hd>Celda</div>'+(ht?'':A('fup','Insertar fila encima'))+A('fdn','Insertar fila debajo')+A('cl','Insertar columna a la izquierda')+A('cr','Insertar columna a la derecha')
+    +(ht?'':A('xf','Eliminar fila')+A('per',(tpC.parentElement.hasAttribute('data-p')?'✓ ':'')+'🔁 Repetir cada año (esta fila)'))+(tpC.parentElement.cells.length>1?A('xc','Eliminar columna'):'')
+    +(h?'<div class=hd>Tipo de esta columna</div>'+[['','Texto'],['f','Fecha'],['d','Días faltantes']].map(([k,l])=>A('ty',(ty[x]==k?'✓ ':'')+l,' data-k="'+k+'"')).join(''):''):'')
+    +'<div class=hd>Tabla</div>'
+    +`<label>Título <input data-s=cap value="${esc(t.caption?.textContent||'')}"></label>`
+    +`<label>Ordenar por <select data-s=sc>${o('','(sin orden)',!C.sort)+cols.map((c,j)=>o(j,esc(c.textContent.trim()||'Columna '+(j+1)),C.sort?.[0]==j)).join('')}</select><select data-s=sd>${o(1,'↑',C.sort?.[1]>0)+o(-1,'↓',C.sort?.[1]<0)}</select></label>`
+    +`<label>Filas visibles <input type=number min=0 data-s=lim value="${C.lim||''}" placeholder="todas"></label>`
+    +`<label>Pasadas <select data-s=past>${o('dim','apagar',C.past=='dim')+o('hide','ocultar',C.past=='hide')+o('end','al final',C.past=='end')}</select></label>`
+    +'<div class=hd>Reglas de color</div>'
+    +R.map(r=>`<div class=rl>hasta <input type=number min=0 data-s=rd data-i=${r.i} value=${r.d}> días <input type=color data-s=rc data-i=${r.i} value=${r.c}><b data-a=xr data-i=${r.i}>✕</b></div>`).join('')
+    +`<div class=rl>más allá <input type=color data-s=ro value=${C.otros}></div>`+A('ar','+ Añadir regla')
+    +'<div class=hd>Filtrar por color</div><div>'+R.map(r=>chip(r.i,r.d?'≤'+r.d:'hoy',r.c)).join('')+chip('o','más',C.otros)+chip('p','pasadas','#bbb')+'</div>'
+    +A('xt','Eliminar la tabla');
+}
+const newRow=(t,i=-1)=>{const n=Math.max(...[...t.rows].map(r=>r.cells.length)),r=t.insertRow(i);for(let k=0;k<n;k++)r.insertCell().innerHTML='<br>';return r};
+const newCol=(t,x)=>{for(const w of t.rows){const n=document.createElement(w.cells[0]?.tagName||'TD');n.innerHTML='<br>';w.insertBefore(n,w.cells[x]??null)}};
+tp.onkeydown=e=>{e.stopPropagation();if(e.key=='Escape')closeTp()};
+document.addEventListener('mousedown',e=>{if(tpOpen()&&!tp.contains(e.target)&&e.target!=gear)closeTp()});
+tp.onclick=e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const a=b.dataset.a,t=tpT,c=tpC,r=c?.parentElement,x=c?.cellIndex,i=+b.dataset.i,R=C=>C.rules.map(q=>[...q]);
+  if(a=='fup')newRow(t,r.rowIndex);
+  else if(a=='fdn')newRow(t,r.rowIndex+1);
+  else if(a=='cl')newCol(t,x);
+  else if(a=='cr')newCol(t,x+1);
+  else if(a=='xf'){r.remove();tpC=null}
+  else if(a=='xc'){for(const w of t.rows)w.cells[x]?.remove();tpC=null}
+  else if(a=='per')r.toggleAttribute('data-p');
+  else if(a=='ty'){
+    const th=hdr(t).cells[x],k=b.dataset.k,antes=th.dataset.k||'';
+    k?th.dataset.k=k:th.removeAttribute('data-k');
+    if(k!=antes&&(k=='d'||antes=='d'))body(t).forEach(w=>{if(w.cells[x])w.cells[x].innerHTML='<br>'}); // «días» no guarda texto: se vacía al entrar o salir de ese tipo
+  }
+  else if(a=='xt'){if(!confirm('¿Eliminar la tabla y todo lo que tiene?'))return;t.remove();flt.delete(t);closeTp();return}
+  else if(a=='ar'){const q=R(cfg(t));q.push([q.reduce((m,z)=>Math.max(m,z[0]),0)+30,'#8e8e93']);cfgSet(t,{rules:q})}
+  else if(a=='xr'){const q=R(cfg(t));q.splice(i,1);cfgSet(t,{rules:q});flt.delete(t)}
+  else if(a=='ch'){const s=flt.get(t)||new Set(),id=b.dataset.id;s.has(id)?s.delete(id):s.add(id);flt.set(t,s)}
+  sortTabla(t);paintDias();later();drawTp();
+};
+tp.oninput=e=>{
+  const s=e.target.dataset.s,t=tpT,v=e.target.value,i=+e.target.dataset.i,q=cfg(t).rules.map(z=>[...z]);if(!s)return;
+  if(s=='cap')v?(t.caption||t.createCaption()).textContent=v:t.caption?.remove();
+  else if(s=='sc')cfgSet(t,{sort:v==''?null:[+v,cfg(t).sort?.[1]||1]});
+  else if(s=='sd'&&cfg(t).sort)cfgSet(t,{sort:[cfg(t).sort[0],+v]});
+  else if(s=='lim')cfgSet(t,{lim:Math.max(0,Math.floor(+v)||0)});
+  else if(s=='past')cfgSet(t,{past:v});
+  else if(s=='rd'){q[i][0]=Math.max(0,Math.floor(+v)||0);cfgSet(t,{rules:q})}
+  else if(s=='rc'){q[i][1]=v;cfgSet(t,{rules:q})}
+  else if(s=='ro')cfgSet(t,{otros:v});
+  sortTabla(t);paintDias();later();
+};
+
+// Tab / Intro se mueven por las celdas como en Excel (la última crea fila; las de «días» no se pueden escribir)
+const auto=c=>c.getAttribute('contenteditable')=='false';
+function put(c){const r=document.createRange();r.selectNodeContents(c);r.collapse(true);getSelection().removeAllRanges();getSelection().addRange(r);c.scrollIntoView({block:'nearest'})}
+function cellMove(c,d){ // d = +1 / -1 (Tab) · 'down' (Intro)
+  const t=c.closest('table'),cells=[...t.querySelectorAll('td,th')].filter(q=>!auto(q));
+  const n=d=='down'?(t.rows[c.parentElement.rowIndex+1]??newRow(t)).cells[c.cellIndex]:cells[cells.indexOf(c)+d]??(d>0?[...newRow(t).cells].find(q=>!auto(q)):null);
+  if(n&&!auto(n))put(n);later();
+}
+function table(){
+  const s=getSelection();let b=s.rangeCount?s.anchorNode:null;
+  if(!b||!ed.contains(b)||cellOf(b))return; // sin cursor en la nota, o ya dentro de una tabla: nada
+  while(b.parentNode!==ed)b=b.parentNode;
+  const t=document.createElement('table');
+  t.innerHTML='<tr><th>Evento</th><th data-k=f>Fecha</th><th data-k=d>Faltan</th></tr>'+'<tr><td><br></td><td><br></td><td contenteditable=false></td></tr>'.repeat(3);
+  b.after(t);if(blank(b)&&b.tagName=='DIV')b.remove();
+  if(!t.nextElementSibling)t.after(Object.assign(document.createElement('div'),{innerHTML:'<br>'})); // para poder escribir debajo
+  put(t.rows[1].cells[0]);paintDias();later();
+}
+
 // una selección que empieza/acaba DENTRO de "↻ vuelve…" o del icono ⟳ (no editables) hace que execCommand no haga nada:
 // se saca el borde fuera de esos elementos, dejándolos dentro de la selección
 function fixSel(){
@@ -421,7 +643,7 @@ const A={
   bold:()=>ex('bold'),italic:()=>ex('italic'),underline:()=>ex('underline'),strike:()=>ex('strikeThrough'),
   hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),
   head:()=>ex('formatBlock',document.queryCommandValue('formatBlock')=='h3'?'div':'h3'),
-  ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,dates:()=>toggleDates(),
+  ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,table,dates:()=>toggleDates(),
   sort:sortFolds,
   fold(){ // la línea del cursor pasa a ser carpeta (o deja de serlo)
     const L=line();if(!L||L.parentNode!==ed)return;
@@ -433,10 +655,10 @@ const A={
 };
 // combo (c=Ctrl s=Shift a=Alt) : tecla física
 const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
-  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyF':'fold','cs:KeyO':'sort','Tab':'indent','s:Tab':'outdent'};
+  'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyT':'table','cs:KeyF':'fold','cs:KeyO':'sort','Tab':'indent','s:Tab':'outdent'};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyL':()=>api.lanz('menu'),'c:KeyM':()=>api.min(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
-  'F1':toggleHelp,'Escape':()=>{help.style.display='none'},'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
+  'F1':toggleHelp,'Escape':()=>{help.style.display='none';tpOpen()&&closeTp()},'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
   if(slN&&slash.style.display=='block'){ // menú «/» abierto: él se queda las flechas, Intro/Tab y Esc
@@ -444,6 +666,8 @@ document.onkeydown=e=>{
     if(e.key=='Enter'||e.key=='Tab'){e.preventDefault();return slashPick(slItems[slSel][0])}
     if(e.key=='Escape'){e.preventDefault();return slashClose()}
   }
+  const cell=!e.ctrlKey&&!e.altKey&&(e.key=='Tab'||e.key=='Enter'&&!e.shiftKey)&&cellOf(getSelection().anchorNode);
+  if(cell){e.preventDefault();return cellMove(cell,e.key=='Enter'?'down':e.shiftKey?-1:1)}
   const m=(e.ctrlKey?'c':'')+(e.shiftKey?'s':'')+(e.altKey?'a':''),k=(m?m+':':'')+e.code;
   if(e.ctrlKey&&/^Key[BIU]$/.test(e.code))fixSel(); // Ctrl+B/I/U los hace el navegador
   if(G[k]){e.preventDefault();return G[k]()}
@@ -475,12 +699,14 @@ ed.oninput=()=>{
   }
   later();
 };
-ed.onblur=()=>{slashClose();if(alOpen()){sv();return} // con el selector de alarma abierto no se toca el texto: su posición se perdería
-  copies();sortFolds();paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
+ed.onblur=()=>{slashClose();if(alOpen()||tpOpen()||dpCell){sv();return} // con el selector de alarma, el panel de tabla o el calendario abiertos no se toca el texto: su posición se perdería
+  copies();sortFolds();sortTablas();lastT=null;paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
 const foldOf=n=>(n?.nodeType==1?n:n?.parentElement)?.closest('.fold');
 let foldWas; // la carpeta donde estaba el cursor antes del clic: un clic ahí solo mueve el cursor (para editar el título), en otra abre/cierra
 ed.onmousedown=()=>{foldWas=foldOf(getSelection().anchorNode)};
 ed.onclick=e=>{
+  const mas=e.target.closest('.mas');if(mas){const t=mas.previousElementSibling;abiertas.has(t)?abiertas.delete(t):abiertas.add(t);return paintDias()}
+  const td=e.target.closest('td[data-f]');if(td&&e.clientX>td.getBoundingClientRect().right-24)return openDp(td); // icono del calendario (el hueco de la derecha de la celda)
   const al=e.target.closest('.alarm');if(al)return openAlarm(al);
   const r=e.target.closest('.rep');if(r){r.remove();later()}
   const f=foldOf(e.target);
@@ -489,7 +715,7 @@ ed.onclick=e=>{
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
 
 // ── «/»: menú de opciones junto al cursor (se filtra al escribir, ↑↓ Intro, Esc). «Alarma» abre el selector de fecha y hora (alp).
-const SL=[['alarm','⏰ Alarma'],['task','☑ Tarea'],['fold','📁 Carpeta'],['head','H Título'],['ul','• Viñetas'],['ol','1. Numerada'],['dates','📅 Varias fechas'],['repeat','🔁 Periódica']];
+const SL=[['alarm','⏰ Alarma'],['task','☑ Tarea'],['fold','📁 Carpeta'],['head','H Título'],['ul','• Viñetas'],['ol','1. Numerada'],['table','▦ Tabla'],['dates','📅 Varias fechas'],['repeat','🔁 Periódica']];
 let slN=null,slAt=0,slSel=0,slItems=[];
 function caretRect(){
   const s=getSelection();if(!s.rangeCount)return ed.getBoundingClientRect();
@@ -609,10 +835,13 @@ const STATE={bold:'bold',italic:'italic',underline:'underline',strike:'strikeThr
 document.onselectionchange=()=>{
   if(document.activeElement!==ed)return;
   slashCheck();
+  const t=cellOf(getSelection().anchorNode)?.closest('table')||null; // al salir de una tabla se ordena y se aplican límite y filtros
+  if(t)placeGear(t);
+  if(t!==lastT){const o=lastT;lastT=t;if(o&&ed.contains(o)&&sortTabla(o))later();paintDias()}
   for(const [b,c] of Object.entries(STATE))tb.querySelector(`[data-c=${b}]`).classList.toggle('on',document.queryCommandState(c));
 };
 
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
-setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen())sortFolds();paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
+setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()){sortFolds();if(sortTablas())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
 </script>
