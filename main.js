@@ -157,7 +157,11 @@ ipcMain.on('lanz',(e,a,id)=>{
 const menuBandeja=()=>tray.popUpContextMenu(Menu.buildFromTemplate([
   {label:'Nueva nota',click:add},{label:'Traer las abiertas a este escritorio',click:showAll},
   {label:'Calendario (Outlook o enlace ICS)…',click:ventanaCalendario},
-  {label:'Carpeta de sincronización…',click:elegirCarpeta},{label:'Buscar actualizaciones…',click:()=>buscarActualizacion(true)},{type:'separator'},{label:'Salir',click:()=>app.exit()}]));
+  {label:'Carpeta de sincronización…',click:elegirCarpeta},{label:'Buscar actualizaciones…',click:()=>buscarActualizacion(true)},{type:'separator'},
+  {label:'Iniciar con Windows',type:'checkbox',checked:arranca(),click:()=>{cfg.arranque=!arranca();guardarCfg();aplicarArranque()}},
+  {label:'Salir',click:()=>app.exit()}]));
+const arranca=()=>cfg.arranque!==false; // por defecto sí (como hasta la 2.1); la elección se guarda y sobrevive a las actualizaciones
+const aplicarArranque=()=>app.setLoginItemSettings({openAtLogin:arranca(),path:process.execPath,args:[__dirname]});
 function elegirCarpeta(){ // una carpeta que sincronice OneDrive; las notas de los dos lados se fusionan
   const r=dialog.showOpenDialogSync({title:'Carpeta de sincronización (la que comparte OneDrive entre tus equipos)',defaultPath:cfg.sync||undefined,properties:['openDirectory','createDirectory']});
   if(!r)return;
@@ -313,8 +317,7 @@ app.whenReady().then(()=>{
   if(!nueva||ajustes.ics)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
   showAll();iniciarSync();vigilarEscritorio();
 
-  // arranque con Windows
-  app.setLoginItemSettings({openAtLogin:true,path:process.execPath,args:[__dirname]});
+  aplicarArranque(); // también repara una entrada de inicio que apunte a una ruta vieja
 
   tray=new Tray(nativeImage.createFromPath(ICON).resize({width:16,height:16}));
   tray.setToolTip('Post-its');

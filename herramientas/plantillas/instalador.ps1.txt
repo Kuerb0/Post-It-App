@@ -291,6 +291,15 @@ $Trabajo = {
                 if ($oculto) { $s.WindowStyle = 7 }
                 $s.Save(); Log "Acceso: $carpeta\$Acceso.lnk"
             }
+            $nombreRe = '^' + [regex]::Escape($App.Nombre).Replace('-', '-?') + '(\s*\(\d+\))?$'
+            # el Escritorio se limpia siempre: cualquier acceso de la app (del usuario o publico), apunte a donde apunte, se borra y se crea el nuevo
+            foreach ($d in @($w.SpecialFolders('Desktop'), $w.SpecialFolders('AllUsersDesktop'))) {
+                if (-not $d) { continue }
+                foreach ($lnk in @(Get-ChildItem -LiteralPath $d -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -match $nombreRe })) {
+                    try { Remove-Item -LiteralPath $lnk.FullName -Force -ErrorAction Stop; Log "Acceso anterior del Escritorio quitado: $($lnk.FullName)" }
+                    catch { Log "No se pudo quitar $($lnk.FullName): $($_.Exception.Message)" }
+                }
+            }
             if ($O.Escritorio) { Acceso 'Desktop' $false }
             if ($O.Inicio) { Acceso 'Programs' $false }
             if ($O.Arranque) { Acceso 'Startup' $true }
@@ -304,7 +313,6 @@ $Trabajo = {
             if (Test-Path -LiteralPath (Split-Path -Parent $ex)) { foreach ($x in 'carpeta.ico', 'desktop.ini') { if (-not (Test-Path -LiteralPath $ex) -or -not (Select-String -LiteralPath $ex -SimpleMatch -Pattern $x -Quiet)) { Add-Content -LiteralPath $ex -Value $x } } }
             Log 'Icono de la carpeta: carpeta.ico + desktop.ini'
             # accesos de versiones anteriores que ya no apuntan a nada (Windows diria «no encuentra D:\...»): se quitan; los que funcionan no se tocan
-            $nombreRe = '^' + [regex]::Escape($App.Nombre).Replace('-', '-?') + '(\s*\(\d+\))?$'
             foreach ($cf in 'Desktop', 'Programs', 'Startup') {
                 $carp = $w.SpecialFolders($cf); if (-not $carp) { continue }
                 foreach ($lnk in @(Get-ChildItem -LiteralPath $carp -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -match $nombreRe })) {
