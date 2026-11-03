@@ -90,12 +90,20 @@ static class Instalador
         string ps1 = Path.Combine(tmp, "instalador.ps1");
         File.WriteAllLines(ps1, script.ToArray(), new UTF8Encoding(true));
 
-        bool silencioso = false;
+        bool silencioso = false, actualizar = false;
         StringBuilder extra = new StringBuilder();
         foreach (string x in args)
         {
             if (string.Equals(x, "-Silencioso", StringComparison.OrdinalIgnoreCase)) silencioso = true;
+            if (string.Equals(x, "-Actualizar", StringComparison.OrdinalIgnoreCase)) actualizar = true;
             extra.Append(' ').Append(Q(x));
+        }
+        // las versiones anteriores de la app bajaban este instalador a la carpeta temporal y lo abrian sin argumentos: eso es una actualizacion
+        // (si en la carpeta no hay nada instalado, el asistente lo detecta y se abre entero, como siempre)
+        if (args.Length == 0 && string.Equals(dir.TrimEnd('\\'), Path.GetTempPath().TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+        {
+            actualizar = true;
+            extra.Append(" -Actualizar");
         }
         string argumentos = "-NoProfile -ExecutionPolicy Bypass -STA -File " + Q(ps1) + " -Self " + Q(bat) + " -Origen " + Q(exe)
                           + " -DirPorDefecto " + Q(defecto) + " -LimpiarTemp" + extra;
@@ -104,7 +112,7 @@ static class Instalador
         psi.UseShellExecute = false;
         psi.CreateNoWindow = true;
         Process p = Process.Start(psi);
-        if (!silencioso)
+        if (!silencioso && !actualizar)
         {
             Application.EnableVisualStyles();
             Splash(Path.Combine(tmp, "listo"), p, exe);      // con ventana: cuando el asistente se abre, este .exe se cierra y el asistente sigue solo

@@ -8,10 +8,11 @@
 #   -SyncDir <carpeta>      (Post-It) sincroniza las notas en esa carpeta (sin esto, en silencio no hay sincronizacion)    -Ics <enlace>   enlace ICS del calendario
 #   -Captura <carpeta>      guarda una imagen de cada pagina de la ventana y sale
 #   -Origen <ruta>          (lo pone el .exe) donde esta el instalador que el usuario ha descargado; si no, es el propio -Self
+#   -Actualizar             (lo pone la app al aceptar «Actualizar») sin asistente: cierra la app, actualiza con una barra de progreso y la abre otra vez
 #   -LimpiarTemp            (lo pone el .bat o el .exe) borra al terminar la carpeta temporal donde esta este script
 param(
     [string]$Self, [string]$DirPorDefecto, [string]$Destino,
-    [switch]$Silencioso, [switch]$SinRed, [switch]$SinAccesos,
+    [switch]$Silencioso, [switch]$Actualizar, [switch]$SinRed, [switch]$SinAccesos,
     [string]$NombreAcceso, [string]$Captura, [switch]$LimpiarTemp, [string]$Origen, [switch]$ForzarDescarga,
     [string]$SyncDir, [string]$Ics)
 
@@ -134,6 +135,7 @@ $Trabajo = {
             New-Item -ItemType Directory -Path $copia -Force | Out-Null      # Copy-Item de un fichero no crea la carpeta destino
             foreach ($c in $App.Programa) { $orig = Join-Path $dest $c; if (Test-Path -LiteralPath $orig) { Copy-Item -LiteralPath $orig -Destination (Join-Path $copia $c) -Recurse -Force } }
             Log "Versión anterior ($antes) guardada en $copia"
+            Msg 'copia' $copia      # la actualización sin asistente la usa para volver atrás si algo falla
         }
         $enc = New-Object Text.UTF8Encoding($false)
         $lineas = [IO.File]::ReadAllLines($Self, $enc)
@@ -400,6 +402,156 @@ function Lanzar-Trabajo {
     $script:ps = [powershell]::Create()
     [void]$script:ps.AddScript($Trabajo.ToString()).AddArgument($Q).AddArgument($Opc).AddArgument($App).AddArgument($Self).AddArgument($PlantillaDes).AddArgument($NombreAcceso).AddArgument($CarpetaIco).AddArgument($Pasos)
     $script:h = $script:ps.BeginInvoke()
+}
+
+# ---- actualizacion desde la propia app (-Actualizar): sin asistente. Cierra la app, cambia los ficheros con una barra de progreso sencilla y la vuelve a abrir.
+# Los accesos directos que ya existen se renuevan; no se crea ninguno nuevo. Sin instalacion previa en la carpeta, se abre el asistente de siempre.
+$BarraPs1 = @'
+# Barra de progreso sencilla: una ventanita abajo a la derecha. Quien actualiza escribe en -Archivo una linea "<0-100> <texto>" y, al terminar, "fin".
+param([string]$Archivo, [string]$Titulo = 'Actualizando', [int]$Minutos = 10)
+$ErrorActionPreference = 'SilentlyContinue'
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+[Windows.Forms.Application]::EnableVisualStyles()
+$script:meta = 0.0; $script:vis = 0.0; $script:texto = 'Preparando...'; $script:x = 0; $script:fin = $false; $script:cierre = 0
+$limite = (Get-Date).AddMinutes($Minutos)      # si quien actualiza muere sin escribir «fin», la ventana no se queda para siempre
+$cian = [Drawing.Color]::FromArgb(46, 196, 182)
+$bFondo = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(11, 15, 20)); $bPista = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(28, 38, 48))
+$bCian = New-Object Drawing.SolidBrush($cian); $bBrillo = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(70, 255, 255, 255))
+$bTitulo = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(242, 245, 247)); $bTexto = New-Object Drawing.SolidBrush([Drawing.Color]::FromArgb(139, 152, 165))
+$lapiz = New-Object Drawing.Pen($cian, 2)
+$fTitulo = New-Object Drawing.Font('Segoe UI Semibold', 11); $fTexto = New-Object Drawing.Font('Segoe UI', 9)
+
+$f = New-Object Windows.Forms.Form
+$f.FormBorderStyle = 'None'; $f.StartPosition = 'Manual'; $f.ClientSize = New-Object Drawing.Size(400, 92); $f.ShowInTaskbar = $false; $f.TopMost = $true; $f.Text = $Titulo
+$f.GetType().GetProperty('DoubleBuffered', [Reflection.BindingFlags]'Instance,NonPublic').SetValue($f, $true, $null)
+$wa = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$f.Location = New-Object Drawing.Point(($wa.Right - 416), ($wa.Bottom - 108))      # como un aviso, sobre la barra de tareas
+$f.Add_Paint({
+    param($s, $a)
+    $g = $a.Graphics
+    $g.FillRectangle($bFondo, 0, 0, 400, 92)
+    $g.DrawRectangle($lapiz, 1, 1, 397, 89)
+    $g.DrawString($Titulo, $fTitulo, $bTitulo, 18, 14)
+    $g.DrawString($script:texto, $fTexto, $bTexto, 19, 42)
+    $g.FillRectangle($bPista, 18, 68, 364, 8)
+    $w = [int](364 * $script:vis / 100)
+    if ($w -gt 0) {
+        $g.FillRectangle($bCian, 18, 68, $w, 8)
+        $g.SetClip((New-Object Drawing.Rectangle(18, 68, $w, 8)))
+        $g.FillRectangle($bBrillo, 18 + ($script:x % ($w + 60)) - 30, 68, 30, 8)      # un destello que recorre la barra: se nota que sigue trabajando
+        $g.ResetClip()
+    }
+})
+$t = New-Object Windows.Forms.Timer; $t.Interval = 40
+$t.Add_Tick({
+    $s = ''
+    try { $fs = New-Object IO.FileStream($Archivo, 'Open', 'Read', 'ReadWrite'); $sr = New-Object IO.StreamReader($fs, [Text.Encoding]::UTF8); $s = $sr.ReadToEnd(); $sr.Close() } catch { }
+    $l = @($s -split "`r?`n" | Where-Object { $_.Trim() }) | Select-Object -Last 1
+    if ($l -and $l.Trim() -eq 'fin') { $script:fin = $true; $script:meta = 100 }
+    elseif ($l -match '^\s*(\d{1,3})\s+(.+)$') { $script:meta = [Math]::Min(100, [int]$Matches[1]); $script:texto = $Matches[2].Trim() }
+    $script:vis += ($script:meta - $script:vis) * 0.12
+    $script:x += 5
+    if ($script:fin) { $script:cierre++; if ($script:vis -gt 99 -or $script:cierre -gt 25) { $t.Stop(); $f.Close() } }
+    if ((Get-Date) -gt $limite) { $t.Stop(); $f.Close() }
+    $f.Invalidate()
+})
+$t.Start()
+[Windows.Forms.Application]::Run($f)
+Remove-Item -LiteralPath $Archivo, $PSCommandPath -Force -ErrorAction SilentlyContinue
+'@
+$script:BarraArchivo = $null; $script:BarraPct = 0; $script:BarraTxt = ''
+function Barra-Iniciar([string]$titulo) {
+    try {
+        $script:BarraArchivo = Join-Path $env:TEMP ('barra_' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+        $ps1 = $script:BarraArchivo + '.ps1'
+        [IO.File]::WriteAllText($script:BarraArchivo, '0 Preparando...', (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($ps1, $BarraPs1, (New-Object Text.UTF8Encoding($true)))
+        Start-Process powershell -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', ('"' + $ps1 + '"'), '-Archivo', ('"' + $script:BarraArchivo + '"'), '-Titulo', ('"' + $titulo + '"'))
+    } catch { $script:BarraArchivo = $null }
+}
+function Barra-Poner($pct, $texto) {
+    if ($null -ne $pct) { $script:BarraPct = [int]$pct }; if ($texto) { $script:BarraTxt = $texto }
+    if ($script:BarraArchivo) { try { [IO.File]::WriteAllText($script:BarraArchivo, "$($script:BarraPct) $($script:BarraTxt)", (New-Object Text.UTF8Encoding($false))) } catch { } }
+}
+function Barra-Cerrar { if ($script:BarraArchivo) { try { [IO.File]::WriteAllText($script:BarraArchivo, 'fin', (New-Object Text.UTF8Encoding($false))) } catch { } } }
+function Tiene-Acceso($carpeta) {      # ¿hay ya un acceso directo de la app en esa carpeta especial (Desktop, Programs, Startup)?
+    try {
+        $d = (New-Object -ComObject WScript.Shell).SpecialFolders($carpeta); if (-not $d) { return $false }
+        $re = '^' + [regex]::Escape($App.Nombre).Replace('-', '-?') + '(\s*\(\d+\))?$'
+        return [bool](Get-ChildItem -LiteralPath $d -Filter '*.lnk' -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -match $re } | Select-Object -First 1)
+    } catch { return $false }
+}
+function Apps-Vivas($dir) {      # los procesos de la app que corre desde esa carpeta (electron o python con la carpeta en su línea de comandos)
+    $re = [regex]::Escape($dir.TrimEnd('\')) + '(\\|"|\s|$)'
+    return @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.Name -match '^(electron|python|pythonw)\.exe$' -and $_.CommandLine -match $re })
+}
+function Cerrar-App($dir) {      # cierra la app que corre desde esa carpeta: se le dan unos segundos para salir sola (la app que nos lanza se cierra) y, si no, se fuerza
+    if (-not @(Apps-Vivas $dir).Count) { return }
+    $limite = (Get-Date).AddSeconds(4)
+    while ((Get-Date) -lt $limite -and @(Apps-Vivas $dir).Count) { Start-Sleep -Milliseconds 200 }
+    foreach ($p in @(Apps-Vivas $dir)) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+    Start-Sleep -Milliseconds 700
+}
+function Volver-Atras($dir, $copia) {      # devuelve los ficheros del programa que había antes de actualizar (la copia que se guardó en anteriores\); $false si no hay copia
+    if (-not $copia -or -not (Test-Path -LiteralPath $copia)) { return $false }
+    try {
+        foreach ($c in $App.Programa) {
+            $orig = Join-Path $copia $c; if (-not (Test-Path -LiteralPath $orig)) { continue }
+            $d = Join-Path $dir $c
+            if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
+            Copy-Item -LiteralPath $orig -Destination $d -Recurse -Force
+        }
+        return $true
+    } catch { return $false }
+}
+if ($Actualizar -and -not (Version-De $dir0)) { $Actualizar = $false }
+if ($Actualizar) {
+    $Opc.Escritorio = (Tiene-Acceso 'Desktop'); $Opc.Inicio = (Tiene-Acceso 'Programs'); $Opc.Arranque = (Tiene-Acceso 'Startup')
+    Barra-Iniciar "Actualizando $($App.Nombre) a la $($App.Version)"
+    Barra-Poner 2 'Cerrando la aplicación...'
+    Cerrar-App $Opc.Dest
+    Barra-Poner 4 'Preparando la actualización...'
+    Lanzar-Trabajo
+    $ok = $false; $pyw = $null; $motivo = ''; $copiaRuta = $null
+    while (-not $h.IsCompleted -or -not $Q.IsEmpty) {
+        $m = $null
+        while ($Q.TryDequeue([ref]$m)) {
+            switch ($m.T) {
+                'paso' { if ($m.B -eq 'curso') { Barra-Poner $null $Pasos[$m.A] } }
+                'prog' { Barra-Poner $m.A $null }
+                'copia' { $copiaRuta = $m.A }
+                'fin' { $ok = $m.A; if ($ok) { $pyw = $m.B } else { $motivo = $m.B } }
+            }
+        }
+        Start-Sleep -Milliseconds 120
+    }
+    $l = $(if ($App.Tipo -eq 'electron') { $Opc.Dest } else { Join-Path $Opc.Dest $App.Lanzador })
+    $cwd = $(if ($App.Tipo -eq 'electron') { $l } else { Split-Path -Parent $l })
+    if ($ok) {
+        Barra-Poner 94 "Abriendo $($App.Nombre)..."
+        try { Start-Process -FilePath $pyw -ArgumentList ('"' + $l + '"') -WorkingDirectory $cwd } catch { }
+        # se comprueba que la versión nueva arranca: si a los segundos no hay ninguna app viva, se vuelve a la anterior
+        Barra-Poner 96 'Comprobando que arranca...'
+        Start-Sleep -Seconds 6
+        if (-not @(Apps-Vivas $Opc.Dest).Count) { $ok = $false; $motivo = "la versión nueva no ha arrancado" }
+    }
+    $volvio = $false
+    if (-not $ok) {      # algo ha fallado: se devuelve lo que había antes (si hay copia) y se abre
+        Barra-Poner 98 'Volviendo a la versión anterior...'
+        Cerrar-App $Opc.Dest
+        $volvio = Volver-Atras $Opc.Dest $copiaRuta
+        $abierta = $false
+        if ($pyw -and (Test-Path -LiteralPath $Opc.Dest)) { try { Start-Process -FilePath $pyw -ArgumentList ('"' + $l + '"') -WorkingDirectory $cwd; $abierta = $true } catch { } }
+        if (-not $abierta) { foreach ($c in 'Desktop', 'Programs') { $a = Join-Path ((New-Object -ComObject WScript.Shell).SpecialFolders($c)) "$NombreAcceso.lnk"; if (Test-Path -LiteralPath $a) { try { Start-Process -FilePath $a } catch { }; break } } }
+    }
+    Barra-Cerrar
+    if (-not $ok) {      # sin consola ni asistente nadie vería el error: se dice en una ventana
+        Add-Type -AssemblyName System.Windows.Forms
+        $queHaPasado = $(if ($volvio) { "Se ha vuelto a la versión anterior y sigue funcionando." } else { "Se ha abierto lo que había." })
+        [void][Windows.Forms.MessageBox]::Show("No se ha podido actualizar $($App.Nombre): $motivo`r`n`r`n$queHaPasado`r`nEl registro está en:`r`n$LogPath", "Actualizar $($App.Nombre)", 'OK', 'Warning')
+    }
+    if ($LimpiarTemp) { Remove-Item -LiteralPath (Split-Path -Parent $PSCommandPath) -Recurse -Force -ErrorAction SilentlyContinue }
+    exit $(if ($ok) { 0 } else { 1 })
 }
 
 if ($Silencioso) {

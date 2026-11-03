@@ -192,8 +192,8 @@ ipcMain.handle('ics:probar',async(e,url)=>{
 ipcMain.handle('ics:guardar',async(e,url)=>{
   ajustes={ics:String(url||'').trim(),mod:Date.now()};guardarSync();await actualizarEventos();return true;
 });
-// ---- aviso de versión nueva: se mira la package.json publicada en GitHub (no se manda ningún dato). «Actualizar» baja el instalador de esa versión y lo abre;
-// él conserva tus notas y tus ajustes. Se pregunta una vez por versión (o siempre que lo pidas desde la bandeja).
+// ---- aviso de versión nueva: se mira la package.json publicada en GitHub (no se manda ningún dato). «Actualizar» baja el instalador de esa versión y lo lanza con -Actualizar
+// (sin asistente: cierra la app, la actualiza con una barra de progreso y la vuelve a abrir); él conserva tus notas y tus ajustes. Se pregunta una vez por versión (o siempre que lo pidas desde la bandeja).
 const VERSION=require('./package.json').version;
 async function buscarActualizacion(aMano){
   try{
@@ -201,12 +201,22 @@ async function buscarActualizacion(aMano){
     if(!S.versionMayor(v,VERSION)){if(aMano)dialog.showMessageBox({type:'info',title:'Post-It',message:`Tienes la última versión (${VERSION}).`});return}
     if(!aMano&&cfg.avisada==v)return;
     cfg.avisada=v;guardarCfg();
+    const nov=await E.bajar('https://raw.githubusercontent.com/Kuerb0/Post-It-App/main/novedades.txt').then(t=>t.trim().split(/\r?\n/).filter(Boolean).slice(0,3).join(' ').slice(0,220),()=>''); // qué trae la versión (opcional)
     const r=await dialog.showMessageBox({type:'info',buttons:['Actualizar','Más tarde'],defaultId:0,cancelId:1,title:'Post-It',
-      message:`Hay una versión nueva de Post-It (${v}); tienes la ${VERSION}.`,detail:'«Actualizar» descarga el instalador y lo abre. Tus notas y ajustes se conservan.'});
+      message:`Hay una versión nueva de Post-It (${v}); tienes la ${VERSION}.`,detail:(nov?`Novedades: ${nov}\n\n`:'')+'«Actualizar» cierra Post-It, lo actualiza con una barra de progreso y lo vuelve a abrir. Tus notas y ajustes se conservan.'});
     if(r.response!=0)return;
-    const f=path.join(app.getPath('temp'),`Post-It ${v} - Instalador.exe`),res=await net.fetch(`https://github.com/Kuerb0/Post-It-App/raw/main/instaladores/${encodeURIComponent(`Post-It ${v} - Instalador.exe`)}`);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    fs.writeFileSync(f,Buffer.from(await res.arrayBuffer()));shell.openPath(f);
+    try{
+      const nombre=`Post-It ${v} - Instalador.exe`,url=`https://github.com/Kuerb0/Post-It-App/raw/main/instaladores/${encodeURIComponent(nombre)}`;
+      const res=await net.fetch(url);
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const datos=Buffer.from(await res.arrayBuffer());
+      // el instalador solo se ejecuta si llegó entero: su suma SHA-256 va publicada junto a él (la escribe generar_instaladores.py)
+      const suma=(await E.bajar(url+'.sha256').catch(()=>{throw new Error('No se pudo comprobar la descarga (falta su suma SHA-256).')})).trim().split(/\s+/)[0].toLowerCase();
+      if(crypto.createHash('sha256').update(datos).digest('hex')!==suma)throw new Error('La descarga no coincide con su suma SHA-256 (incompleta o dañada). No se ha ejecutado.');
+      const f=path.join(app.getPath('temp'),nombre);fs.writeFileSync(f,datos);
+      spawn(f,['-Actualizar'],{detached:true,stdio:'ignore',windowsHide:true}).unref(); // sin asistente: el instalador espera a que cierre la app, la actualiza con su barra, comprueba que arranca (si no, vuelve a la anterior) y la abre
+      setTimeout(()=>app.exit(),400);
+    }catch(err){dialog.showMessageBox({type:'warning',title:'Post-It',message:'No se pudo actualizar Post-It.',detail:String(err.message||err)+'\nSigues con la versión que tenías.'})}
   }catch(err){if(aMano)dialog.showMessageBox({type:'warning',title:'Post-It',message:'No se pudo comprobar las actualizaciones.',detail:String(err.message||err)})}
 }
 // ---- dónde viven las notas: se fija la primera vez (sync.json de la app) y no cambia solo

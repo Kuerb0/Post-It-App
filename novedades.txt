@@ -1,0 +1,2 @@
+Actualizar ya no abre ningún asistente: Post-It se cierra, se actualiza con una barra de progreso sencilla y se vuelve a abrir solo.
+Se comprueba que la descarga llega entera (SHA-256) y se guarda una copia de la versión actual: si la nueva no arranca, vuelve sola a la anterior.

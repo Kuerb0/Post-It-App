@@ -16,9 +16,10 @@ set "VJ_WORK=%WORKDIR%"
 set "VJ_SELF=%SELF%"
 set "VJ_DIR=%INSTALL_DIR%"
 rem Con ventana (lo normal): PowerShell extrae el asistente y lo abre oculto; esta consola se cierra y el cuervo va en la ventana.
-rem Con -Silencioso se instala aqui mismo, en la consola, con el banner.
+rem Con -Silencioso o -Actualizar se instala aqui mismo, en la consola, con el banner.
 set "VJ_GUI=1"
 echo %* | findstr /i /c:"-Silencioso" >nul && set "VJ_GUI="
+echo %* | findstr /i /c:"-Actualizar" >nul && set "VJ_GUI="
 
 echo.
 echo   Instalador de @@NOMBRE@@ @@VERSION@@ ^| Kuerb0

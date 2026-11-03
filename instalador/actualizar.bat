@@ -1,5 +1,5 @@
 @echo off
-rem Actualiza el codigo de Post-its desde git y reinicia la app.
+rem Cierra Post-its, actualiza el codigo desde git y la vuelve a abrir (solo hace pausa si algo falla).
 rem Tus notas (notes.json) no se tocan: estan fuera de git.
 setlocal
 for %%I in ("%~dp0..") do set "APP=%%~fI"
@@ -33,7 +33,7 @@ if errorlevel 1 (
 start "" "%RT%\node_modules\electron\dist\electron.exe" "%APP%"
 echo.
 echo Actualizado y reiniciado.
-pause
+timeout /t 3 >nul
 exit /b 0
 
 :::BANNERSTART

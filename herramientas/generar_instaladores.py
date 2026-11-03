@@ -296,6 +296,12 @@ def main():
             exe = destino[:-4] + ".exe"
             if construir_exe(contenido, version, exe):
                 print(f"OK  {os.path.relpath(exe, RAIZ)}  ({os.path.getsize(exe) // 1024} KB)")
+                # su suma SHA-256 va publicada junto al .exe: la app la comprueba antes de ejecutar lo que descarga al actualizar
+                with open(exe, "rb") as f:
+                    suma = hashlib.sha256(f.read()).hexdigest()
+                with open(exe + ".sha256", "w", encoding="ascii", newline="\n") as f:
+                    f.write(f"{suma}  {os.path.basename(exe)}\n")
+                print(f"OK  {os.path.relpath(exe, RAIZ)}.sha256")
 
 
 if __name__ == "__main__":
