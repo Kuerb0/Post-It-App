@@ -16,6 +16,8 @@ Notas adhesivas de escritorio para Windows (Electron). Se pueden minimizar con `
 
 **Borrar notas desde el lanzador:** cada nota del lanzador (clic en la bandeja o Ctrl+L) tiene un botón 🗑, y el clic derecho sobre ella hace lo mismo; pregunta antes salvo que esté vacía.
 
+**Maximizar:** además de − y ✕, cada nota tiene un botón de maximizar/restaurar (también con doble clic en la barra); al volver a abrirla recupera su tamaño normal.
+
 **Letra:** el botón Tт de la barra ajusta el tamaño de la letra y el interlineado de todas las notas (con − y + para afinar). Las cabeceras de fecha (`Lunes 02/11`) salen siempre en negrita.
 
 - **Instalar:** descarga el instalador en [descargas → Post-It](https://github.com/Kuerb0/descargas/releases?q=postit). Se instala encima de la versión anterior y conserva tus notas.

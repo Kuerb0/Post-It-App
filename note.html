@@ -82,6 +82,8 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-help viewBox="0 0 24 24"><circle cx=12 cy=12 r=10 /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
 <symbol id=i-trash viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
 <symbol id=i-min viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id=i-max viewBox="0 0 24 24"><rect width=14 height=14 x=5 y=5 rx=1 /></symbol>
+<symbol id=i-restore viewBox="0 0 24 24"><rect width=11 height=11 x=4 y=9 rx=1 /><path d="M9 9V5h11v11h-4"/></symbol>
 <symbol id=i-x viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
 <symbol id=i-bold viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"/></symbol>
 <symbol id=i-italic viewBox="0 0 24 24"><path d="M19 4h-9M14 20H5M15 4L9 20"/></symbol>
@@ -115,6 +117,7 @@ button.on{opacity:1;background:#0003}
   <button id=hbtn title="Atajos (F1)"><svg><use href="#i-help"/></svg></button>
   <button id=del title="Eliminar nota"><svg><use href="#i-trash"/></svg></button>
   <button onclick="api.min()" title="Minimizar (Ctrl+M): queda en la barra de tareas"><svg><use href="#i-min"/></svg></button>
+  <button id=mx onclick="api.max()" title="Maximizar (doble clic en la barra)"><svg><use href="#i-max"/></svg></button>
   <button onclick="api.close()" title="Cerrar (Ctrl+W)"><svg><use href="#i-x"/></svg></button>
 </div>
 <div id=est><span class=g>Letra <button data-r=fsr data-m=- title="Menos">−</button><input type=range id=fsr min=9 max=30 step=1><button data-r=fsr data-m=+ title="Más">+</button><span id=fsv></span></span><span class=g>Interlineado <button data-r=lhr data-m=- title="Menos">−</button><input type=range id=lhr min=1 max=2.6 step=.05><button data-r=lhr data-m=+ title="Más">+</button><span id=lhv></span></span><button id=estr>Restablecer</button></div>
@@ -867,6 +870,7 @@ document.onselectionchange=()=>{
   for(const [b,c] of Object.entries(STATE))tb.querySelector(`[data-c=${b}]`).classList.toggle('on',document.queryCommandState(c));
 };
 
+api.onMax(v=>{mx.firstElementChild.firstElementChild.setAttribute('href',v?'#i-restore':'#i-max');mx.title=v?'Restaurar tamaño (doble clic en la barra)':'Maximizar (doble clic en la barra)'}); // main avisa al (des)maximizar, también con el doble clic de la barra
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
 setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()){sortFolds();if(sortTablas())later();if(limpiar())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)

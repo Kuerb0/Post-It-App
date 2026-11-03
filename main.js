@@ -88,8 +88,9 @@ function open(n){
   w.loadFile('note.html',{query:{id:n.id}});
   w.once('ready-to-show',()=>{if(aqui(n.id))w.show();apply(w,n)});
   w.on('blur',()=>{if(find(n.id)?.z=='bottom'&&!w.isDestroyed())toBottom(w)}); // al soltar el foco, vuelve al fondo
-  let t;const sp=()=>{pos[n.id]=Object.assign(pos[n.id]||{},w.getBounds());clearTimeout(t);t=setTimeout(gp,300)};
+  let t;const sp=()=>{pos[n.id]=Object.assign(pos[n.id]||{},w.getNormalBounds());clearTimeout(t);t=setTimeout(gp,300)}; // el tamaño normal, no el de pantalla completa: al volver a abrirla no sale maximizada
   w.on('moved',sp);w.on('resized',sp);
+  w.on('maximize',()=>w.webContents.send('max',true));w.on('unmaximize',()=>w.webContents.send('max',false));
   w.on('restore',()=>w.setSkipTaskbar(true)); // minimizada sale en la barra de tareas; al volver, deja de salir
   w.on('closed',()=>{wins.delete(n.id);pintarLanz()});
   wins.set(n.id,w);
@@ -305,6 +306,7 @@ ipcMain.on('hechoCal',(e,id,k,v)=>{ // casilla de un evento del Calendario pinta
 ipcMain.on('cols',(e,id,v)=>{const n=find(id);if(n){n.cols=v||undefined;save()}}); // máx. de columnas (0 = sin columnas)
 ipcMain.on('new',add);
 ipcMain.on('close',e=>win(e).close());
+ipcMain.on('max',e=>{const w=win(e);w.isMaximized()?w.unmaximize():w.maximize()});
 ipcMain.on('min',e=>{const w=win(e);w.setSkipTaskbar(false);w.minimize()});
 ipcMain.on('del',(e,id)=>{
   const n=find(id);if(!n)return;

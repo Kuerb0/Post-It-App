@@ -13,7 +13,7 @@ const nota={id:'t1',color:'#ffd83b',html:${JSON.stringify(html)},limpia:true};
 window.__lanz=[];
 const noop=()=>{};
 contextBridge.exposeInMainWorld('api',{
-  get:async()=>nota,save:(id,h)=>{window.__guardado=h},color:noop,z:async()=>0,glass:async()=>0,cols:noop,add:noop,del:noop,close:noop,min:noop,
+  get:async()=>nota,save:(id,h)=>{window.__guardado=h},color:noop,z:async()=>0,glass:async()=>0,cols:noop,add:noop,del:noop,close:noop,min:noop,max:()=>{window.__lanz.push(['max'])},onMax:noop,
   cal:async()=>false,limpia:async()=>false,agenda:async()=>[],refrescar:async()=>{},estilo:async()=>({fs:15,lh:1.35}),setEstilo:noop,onEstilo:noop,
   icsGet:async()=>({}),icsProbar:async()=>({}),icsGuardar:async()=>true,hechoCal:noop,
   lanz:(a,id)=>{window.__lanz.push([a,id])},onLanz:f=>{window.__alanz=f},onSet:noop,onAgenda:noop});
@@ -34,6 +34,11 @@ app.whenReady().then(async () => {
     await new Promise(r => setTimeout(r, 900)); // el guardado va con un respiro de 400 ms
     const guardado = await n.webContents.executeJavaScript('__t.guardado()');
     assert.ok(guardado && !/tarea vieja|ayer/.test(guardado) && /hoy/.test(guardado), 'se guarda sin lo borrado y con lo demás');
+
+    // --- botón de maximizar: está entre − y ✕ y llama a api.max
+    assert.strictEqual(await n.webContents.executeJavaScript(`mx.previousElementSibling.querySelector('use').getAttribute('href')+mx.nextElementSibling.querySelector('use').getAttribute('href')`), '#i-min#i-x');
+    await n.webContents.executeJavaScript('mx.click()');
+    assert.deepStrictEqual(await n.webContents.executeJavaScript('__t.lanz()'), [['max']]);
 
     // --- lanzador: cada nota lleva su botón 🗑 y el clic derecho pide borrarla
     const l = await abrir('lanzador.html');

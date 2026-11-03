@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('api',{
   del:id=>r.send('del',id),
   close:()=>r.send('close'),
   min:()=>r.send('min'),
+  max:()=>r.send('max'),
+  onMax:f=>r.on('max',(_,v)=>f(v)),
   cal:id=>r.invoke('cal',id),
   limpia:id=>r.invoke('limpia',id),
   agenda:()=>r.invoke('agenda'),
