@@ -121,7 +121,7 @@ function fusionar(archivos) {
   }
   const notas = [], borradas = [];
   for (const [id, n] of mejor) { if (borr.has(id) && borr.get(id) >= (n.mod || 0)) continue; notas.push(n); }
-  for (const [id, mod] of borr) if (!mejor.has(id) || mejor.get(id).mod < mod) borradas.push({ id, mod });
+  for (const [id, mod] of borr) if (!mejor.has(id) || (mejor.get(id).mod || 0) <= mod) borradas.push({ id, mod });   // sin mod (notas de la 1.x) vale 0: si no, el borrado se perdía y la nota resucitaba
   return { notas, borradas, ajustes: ajustes.mod < 0 ? {} : ajustes, colores };
 }
 const ficheroEquipo = (carpeta, nombre = equipo()) => path.join(carpeta, `postit-${nombre}.json`);

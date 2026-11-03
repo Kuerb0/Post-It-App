@@ -85,6 +85,17 @@ assert.deepStrictEqual(f.borradas, [{ id: '2', mod: 300 }]);
 const dosEdit = S.fusionar([{ notas: [{ id: 'x', html: 'a', mod: 5 }] }, { notas: [{ id: 'x', html: 'b', mod: 9 }] }]);
 assert.strictEqual(dosEdit.notas[0].html, 'b');
 assert.strictEqual(S.fusionar([{ notas: [{ id: 'x', mod: 10 }] }, { notas: [], borradas: [{ id: 'x', mod: 4 }] }]).notas.length, 1);
+// una nota sin mod (de la 1.x, nunca editada): al borrarla en A y recargar mientras B aún la tiene, A no pierde el borrado; si lo perdiera, la nota resucitaba al arrancar B
+{
+  const vieja = { id: 'v', html: 'de la 1.x' }, ficheroB = { notas: [{ ...vieja }], borradas: [] };
+  const eA = S.estadoNuevo(), notasA = [{ ...vieja }]; S.iniciarEstado(eA, notasA);
+  notasA.length = 0; let borrA = S.marcar(eA, notasA, 500);                                    // A la borra
+  assert.deepStrictEqual(borrA, [{ id: 'v', mod: 500 }]);
+  const tras = S.fusionar([{ notas: notasA, borradas: borrA }, ficheroB]);                     // A recarga el fichero de B, que aún la lleva
+  assert.strictEqual(tras.notas.length, 0);
+  assert.deepStrictEqual(tras.borradas, [{ id: 'v', mod: 500 }]);                              // y conserva el borrado
+  assert.strictEqual(S.fusionar([{ notas: [], borradas: tras.borradas }, ficheroB]).notas.length, 0);   // B arranca más tarde: sigue borrada
+}
 // notes.json de la 1.x y sus copias en conflicto entran como mod 0: cualquier cambio posterior (o borrado) las supera
 fs.writeFileSync(path.join(sd, 'notes.json'), JSON.stringify([{ id: '1', html: 'viejo' }, { id: '9', html: 'solo en la 1.x' }]));
 fs.writeFileSync(path.join(sd, 'notes-Portatil_Mario-2.json'), '[{"id":"8","html":"copia en conflicto"}]');
