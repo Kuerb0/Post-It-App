@@ -128,7 +128,7 @@ async function actualizarEventos(){
   }catch(err){console.error('eventos',err)}finally{leyendo=false}
 }
 // ---- lanzador (clic en el icono de la bandeja): miniaturas de las notas, abrir/cerrar, cuáles arrancan y cuál es la principal (lanzador.html)
-let lw,lwCerrado=0;
+let lw,lwCerrado=0,preguntando=false; // preguntando: el aviso de «¿eliminar?» le quita el foco al lanzador y no debe cerrarlo
 const cl=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));
 const pintarLanz=()=>{if(lw&&!lw.isDestroyed())lw.webContents.send('lanz',
   [...notes].sort((a,b)=>(b===principal())-(a===principal())).map(n=>({id:n.id,color:n.color,html:n.html,open:wins.has(n.id),start:inicia(n),main:n===principal()})))};
@@ -141,7 +141,7 @@ function lanzador(){
     webPreferences:{preload:path.join(__dirname,'preload.js')}});
   lw.loadFile('lanzador.html');
   lw.once('ready-to-show',()=>{lw.show();pintarLanz()});
-  lw.on('blur',()=>lw.close());
+  lw.on('blur',()=>{if(!preguntando)lw.close()});
   lw.on('closed',()=>{lw=null;lwCerrado=Date.now()});
 }
 ipcMain.on('lanz',(e,a,id)=>{
@@ -152,6 +152,15 @@ ipcMain.on('lanz',(e,a,id)=>{
   else if(a=='cerrar')wins.get(id)?.close();
   else if(a=='ini'&&n&&n!==principal()){n.dorm=n.dorm?undefined:true;save()}
   else if(a=='main'&&n){notes.forEach(x=>x.main=undefined);n.main=true;n.dorm=undefined;save()}
+  else if(a=='borrar'&&n){ // como el botón de la nota: pregunta salvo que esté vacía; la ventana de la nota se cierra con ella
+    if(n.html.replace(/<[^>]*>/g,'').trim()){
+      preguntando=true;
+      const no=dialog.showMessageBoxSync(lw,{type:'question',buttons:['Eliminar','Cancelar'],defaultId:1,cancelId:1,message:'¿Eliminar esta nota?'});
+      preguntando=false;
+      if(no){lw?.focus();return}
+    }
+    notes=notes.filter(x=>x!==n);save();wins.get(id)?.close();
+  }
   if(a=='nueva'||a=='abrir'||a=='esc')lw?.close();else pintarLanz();
 });
 const menuBandeja=()=>tray.popUpContextMenu(Menu.buildFromTemplate([
@@ -269,6 +278,9 @@ ipcMain.handle('glass',(e,id)=>{
 });
 ipcMain.handle('cal',(e,id)=>{ // unir con el Calendario: sus tareas bajo una fecha van al Calendario y ven sus eventos
   const n=find(id);n.cal=n.cal?undefined:true;save();return !!n.cal;
+});
+ipcMain.handle('limpia',(e,id)=>{ // borrar solos los días anteriores a hoy (lo hace la propia nota al abrirse y al cambiar de día)
+  const n=find(id);n.limpia=n.limpia?undefined:true;save();return !!n.limpia;
 });
 ipcMain.handle('agenda',()=>eventos);
 ipcMain.handle('estilo',()=>({fs:cfg.tam||15,lh:cfg.lh||1.35})); // letra (px) e interlineado: globales, valen para todas las notas

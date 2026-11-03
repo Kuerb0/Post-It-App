@@ -29,8 +29,8 @@ footer button:hover{background:#4a4a4a}footer i{flex:1}
 let L=[],lista=false;
 const titulo=n=>{const t=n.html.replace(/<\/(div|p|li|h\d)>|<br\s*\/?>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').split('\n').map(s=>s.trim()).find(Boolean)||'(vacía)';return t.length>40?t.slice(0,39)+'…':t};
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-// ★ principal (siempre arranca) · ⏻ arranca con Windows (si no, la nota queda dormida) · ✕ cerrar (dormir ahora)
-const btn=n=>`<span class=t><button data-a=main class="${n.main?'a':''}" title="Principal">★</button><button data-a=ini class="${n.start?'a':''}" title="${n.main?'La principal siempre arranca':'Abrir al iniciar'}">⏻</button>${n.open?'<button data-a=cerrar title="Cerrar (dormir)">✕</button>':''}</span>`;
+// ★ principal (siempre arranca) · ⏻ arranca con Windows (si no, la nota queda dormida) · ✕ cerrar (dormir ahora) · 🗑 eliminar (también con clic derecho)
+const btn=n=>`<span class=t><button data-a=main class="${n.main?'a':''}" title="Principal">★</button><button data-a=ini class="${n.start?'a':''}" title="${n.main?'La principal siempre arranca':'Abrir al iniciar'}">⏻</button>${n.open?'<button data-a=cerrar title="Cerrar (dormir)">✕</button>':''}<button data-a=borrar title="Eliminar la nota (o clic derecho sobre ella)">🗑</button></span>`;
 function pintar(){
   const g=document.getElementById('g'),l=document.getElementById('l'),mas=document.getElementById('mas'),res=L.slice(8);
   g.innerHTML=L.slice(0,8).map(n=>`<div class="c ${n.open?'on':'off'}" data-id="${n.id}" style="background:${n.color}"><div class=m>${n.html}</div>${btn(n)}</div>`).join('')
@@ -46,6 +46,7 @@ document.onclick=e=>{
   if(a=='nueva')return api.lanz('nueva');
   if(c)api.lanz(a||'abrir',c.dataset.id);
 };
+document.oncontextmenu=e=>{const c=e.target.closest('[data-id]');if(c){e.preventDefault();api.lanz('borrar',c.dataset.id)}}; // clic derecho sobre una nota: eliminarla (main pregunta antes)
 onkeydown=e=>{if(e.key=='Escape')api.lanz('esc')};
 api.onLanz(l=>{L=l;pintar()});
 </script>

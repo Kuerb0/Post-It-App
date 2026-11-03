@@ -12,9 +12,13 @@ Notas adhesivas de escritorio para Windows (Electron). Se pueden minimizar con `
 
 **Primera vez:** el instalador explica la sincronización, pide las dos carpetas y el enlace ICS (todo opcional), y la primera nota es un post-it de bienvenida corto; `F1` lista todos los atajos. **Actualizaciones:** al abrir, un aviso si hay versión nueva en GitHub («Actualizar» baja el instalador y lo abre; tus notas se conservan).
 
+**Borrar días pasados (opcional, por nota):** el botón de calendario con ✕ de la barra de arriba borra solas las fechas anteriores a hoy con todo lo que tienen debajo (al abrir la nota y al cambiar de día). Pide confirmación al activarlo.
+
+**Borrar notas desde el lanzador:** cada nota del lanzador (clic en la bandeja o Ctrl+L) tiene un botón 🗑, y el clic derecho sobre ella hace lo mismo; pregunta antes salvo que esté vacía.
+
 **Letra:** el botón Tт de la barra ajusta el tamaño de la letra y el interlineado de todas las notas (con − y + para afinar). Las cabeceras de fecha (`Lunes 02/11`) salen siempre en negrita.
 
 - **Instalar:** descarga el instalador en [descargas → Post-It](https://github.com/Kuerb0/descargas/releases?q=postit). Se instala encima de la versión anterior y conserva tus notas.
-- **Pruebas:** `node tests/test_sync.js`, `node tests/test_eventos.js` y, tras generar el instalador, `powershell -File tests	est_instalador.ps1` (instala y actualiza en una carpeta temporal; deben acabar en `TEST OK`). El lector de Outlook (`outlook.ps1`) solo se puede probar con Outlook clásico abierto.
+- **Pruebas:** `node tests/test_sync.js`, `node tests/test_eventos.js`, `electron tests/test_limpiar.js` y, tras generar el instalador, `powershell -File tests	est_instalador.ps1` (instala y actualiza en una carpeta temporal; deben acabar en `TEST OK`). El lector de Outlook (`outlook.ps1`) solo se puede probar con Outlook clásico abierto.
 
 Forma parte del [portal](https://kuerb0.github.io/portal/).

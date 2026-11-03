@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api',{
   close:()=>r.send('close'),
   min:()=>r.send('min'),
   cal:id=>r.invoke('cal',id),
+  limpia:id=>r.invoke('limpia',id),
   agenda:()=>r.invoke('agenda'),
   refrescar:()=>r.invoke('refrescar'),
   estilo:()=>r.invoke('estilo'),

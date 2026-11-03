@@ -75,6 +75,7 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-repeat viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
 <symbol id=i-cal viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=4 rx=2 /><path d="M8 2v4M16 2v4M3 10h18M12 14v4M10 16h4"/></symbol>
 <symbol id=i-calsync viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=4 rx=2 /><path d="M8 2v4M16 2v4M3 10h18M9 16l2 2 4-4"/></symbol>
+<symbol id=i-caldel viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=4 rx=2 /><path d="M8 2v4M16 2v4M3 10h18M10 13l4 4M14 13l-4 4"/></symbol>
 <symbol id=i-ztop viewBox="0 0 24 24"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></symbol>
 <symbol id=i-zbottom viewBox="0 0 24 24"><path d="m7 6 5 5 5-5M7 13l5 5 5-5"/></symbol>
 <symbol id=i-color viewBox="0 0 24 24"><path d="M12 2.7l5.7 5.6a8 8 0 1 1-11.4 0z"/></symbol>
@@ -105,6 +106,7 @@ button.on{opacity:1;background:#0003}
   <button onclick="api.lanz('menu')" title="Todas las notas (Ctrl+L)"><svg><use href="#i-grid"/></svg></button><i></i>
   <button id=cb><svg><use href="#i-cols"/></svg><span id=cn></span></button>
   <button id=calb><svg><use href="#i-calsync"/></svg></button>
+  <button id=limb><svg><use href="#i-caldel"/></svg></button>
   <button id=refb style="display:none" title="Actualizar: relee el Calendario y Outlook"><svg><use href="#i-refresh"/></svg></button>
   <button id=gl><svg><use href="#i-glass"/></svg></button>
   <button id=zb><svg><use href="#i-z0"/></svg></button>
@@ -172,6 +174,7 @@ button.on{opacity:1;background:#0003}
   <h4>Fechas, alarmas y carpetas</h4>
   <div><b>Una fecha sola</b> en una línea (<i>Lunes 02/11</i>, <i>14/10</i>, <i>14-10-2027</i>) es una cabecera: sale en negrita con «hoy», «mañana» o «faltan N días»; bajo ella pones las tareas de ese día. Sin año, se entiende el próximo</div>
   <div><b>Ctrl+Shift+D</b> añadir varias fechas seguidas de golpe (+2, +3, +5, +7, +14, +30 días)</div>
+  <div><b>Botón de calendario con ✕</b> (barra de arriba) borra solos los días anteriores a hoy de esta nota: cada fecha pasada con todo lo que tiene debajo, al abrirla y al cambiar de día. Pide confirmación al activarlo; lo que haya antes de la primera fecha y hoy no se tocan</div>
   <div><b>/</b> menú de opciones: ⏰ Alarma, ☑ Tarea, 📁 Carpeta, H Título, • Viñetas, 1. Numerada, 📅 Varias fechas, 🔁 Periódica. Escribe para filtrar, ↑↓ para moverte, Intro para elegir, Esc para salir</div>
   <div><b>⏰ Alarma</b> pide fecha y hora (escribiéndola o con el selector) y deja una etiqueta en la línea: a esa hora la nota salta y suena aunque esté cerrada o dormida. Clic en la etiqueta para cambiarla o quitarla</div>
   <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde o muestra lo que tiene debajo hasta la siguiente carpeta (útil para cumpleaños, listas largas…)</div>
@@ -281,7 +284,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';sortFolds();refold();if(sortTablas())later();paintDias();paintAlarms();
+  ed.innerHTML=n.html||'<div><br></div>';setLimpia(n.limpia);sortFolds();refold();if(sortTablas())later();paintDias();paintAlarms();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -817,6 +820,29 @@ async function setCal(v){
   paintCal();
 }
 calb.onclick=async()=>setCal(await api.cal(id));
+// borrar solos los días anteriores a hoy: cada cabecera de fecha pasada se va con todo lo que tiene debajo, hasta la siguiente cabecera. Opcional y por nota;
+// se aplica al abrirla y al cambiar de día (con el cursor fuera del texto), nunca sobre hoy ni sobre lo que haya antes de la primera fecha
+let limpia=false;
+function limpiar(){
+  if(!limpia)return false;
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const rows=[...ed.children],pasadas=[...headDates()].filter(([,d])=>d<hoy).map(([h])=>h);
+  for(const h of pasadas){
+    let k=rows.indexOf(h)+1;while(k<rows.length&&!isHead(rows[k]))k++;
+    rows.slice(rows.indexOf(h),k).forEach(r=>r.remove());
+  }
+  if(pasadas.length&&!ed.children.length)ed.innerHTML='<div><br></div>';
+  return pasadas.length>0;
+}
+function setLimpia(v){
+  limpia=!!v;limb.classList.toggle('on',limpia);
+  limb.title=limpia?'Borra solos los días anteriores a hoy (cabecera y lo de debajo). Clic: dejar de borrarlos':'Borrar solos los días anteriores a hoy (clic para activarlo en esta nota)';
+  if(limpiar())later();
+}
+limb.onclick=async()=>{
+  if(!limpia&&!confirm('Se borrarán de esta nota, ahora y cada día, las fechas anteriores a hoy con todo lo que tengan debajo.\n\n¿Activarlo?'))return;
+  setLimpia(await api.limpia(id));
+};
 let tRef;refb.onclick=()=>{api.refrescar();refb.classList.add('spin');clearTimeout(tRef);tRef=setTimeout(()=>refb.classList.remove('spin'),8000)}; // la agenda nueva llega por onAgenda cuando el Calendario la escribe
 api.onAgenda(ev=>{agenda=ev;paintCal()});
 // letra e interlineado: valen para todas las notas (main los guarda y los reparte); se aplican como variables CSS
@@ -843,5 +869,5 @@ document.onselectionchange=()=>{
 
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
-setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()){sortFolds();if(sortTablas())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
+setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()){sortFolds();if(sortTablas())later();if(limpiar())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
 </script>
