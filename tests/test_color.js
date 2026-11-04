@@ -12,8 +12,8 @@ contextBridge.exposeInMainWorld('api',{
   get:async()=>nota,save:(id,h)=>{window.__guardado=h},color:noop,z:async()=>0,glass:async()=>0,cols:noop,add:noop,del:noop,close:noop,min:noop,max:noop,onMax:noop,
   cal:async()=>false,limpia:async()=>false,agenda:async()=>[],refrescar:async()=>{},estilo:async()=>({fs:15,lh:1.35}),setEstilo:noop,onEstilo:noop,
   icsGet:async()=>({}),icsProbar:async()=>({}),icsGuardar:async()=>true,hechoCal:noop,
-  lanz:noop,onLanz:noop,onSet:noop,onAgenda:noop});
-contextBridge.exposeInMainWorld('__t',{guardado:()=>window.__guardado});`);
+  lanz:noop,onLanz:f=>{window.__alanz=f},onSet:noop,onAgenda:noop});
+contextBridge.exposeInMainWorld('__t',{guardado:()=>window.__guardado,pintar:l=>window.__alanz(l)});`);
 
 app.whenReady().then(async () => {
   try {
@@ -53,6 +53,18 @@ app.whenReady().then(async () => {
     await js(`(()=>{const t=ed.lastElementChild.firstChild,r=document.createRange();r.setStart(t,0);r.setEnd(t,5);const s=getSelection();s.removeAllRanges();s.addRange(r)})()`);
     await js(`fcc.value='#1a73e8';fcc.dispatchEvent(new Event('change',{bubbles:true}))`);
     assert.ok(/color: rgb\(26, 115, 232\);">otra /.test(await js(`ed.innerHTML`)), 'el color elegido se aplica a la selección');
+
+    // --- el lanzador (la lista de notas) también usa iconos propios, no símbolos de la fuente: ★ ⏻ ✕ 🗑 salen de su sprite
+    const l = new BrowserWindow({ show: true, width: 760, height: 360, webPreferences: { preload } });
+    l.loadFile(path.join(__dirname, '..', 'lanzador.html'));
+    await new Promise(ok => l.webContents.once('did-finish-load', () => setTimeout(ok, 600)));
+    const jsl = c => l.webContents.executeJavaScript(c);
+    await jsl(`__t.pintar([{id:'a',color:'#ffd83b',open:true,main:true,start:true,html:'<div>Uno</div>'},{id:'b',color:'#9be3a0',open:false,main:false,start:false,html:'<div>Dos</div>'}])`);
+    const faltanL = await jsl(`[...new Set([...document.querySelectorAll('use')].map(u=>u.getAttribute('href')))].filter(h=>!document.querySelector(h))`);
+    assert.deepStrictEqual(faltanL, [], 'iconos del lanzador sin definir: ' + faltanL);
+    assert.strictEqual(await jsl(`['star','power','x','trash'].every(i=>document.querySelector('[data-a]:has(svg.'+i+')'))`), true, 'los cuatro botones del lanzador llevan su icono SVG');
+    assert.strictEqual(await jsl(`document.querySelector('.c [data-a]').textContent.trim()`), '', 'sin símbolos de texto en los botones del lanzador');
+    assert.ok(await jsl(`['main','ini','borrar'].every(a=>{const s=document.querySelector('[data-a='+a+'] svg').getBoundingClientRect();return s.width>=10&&s.height>=10})`), 'los iconos del lanzador se dibujan');
 
     if (process.env.CAPTURA) {
       await js(`fcp.style.display='flex';szb.click()`);

@@ -1,2 +1,2 @@
-Nuevo botón A en la barra de formato para cambiar el color del texto (también Ctrl+Shift+J): diez colores, uno a elegir y «Automático».
-Arreglados los iconos de tamaño de letra y de tabla de eventos, que no se veían en algunos equipos.
+Los iconos del lanzador (principal, arrancar, cerrar, borrar) ahora son propios y se ven igual en todos los equipos.
+Nuevo botón A para el color del texto; arreglados los iconos de tamaño de letra y de tabla de eventos.

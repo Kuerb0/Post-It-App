@@ -12,7 +12,7 @@ body{font:13px 'Segoe UI',sans-serif;color:#eee;background:#262626;display:flex;
 .m .alarm{background:#0002;border-radius:6px;padding:0 3px}.m .hid{display:none}.m .fold{font-weight:700}.m .fold::before{content:'▾ '}.m .fold[data-closed]::before{content:'▸ '}
 .m h3{font-size:10px;margin:0}.m ul,.m ol{margin:0;padding-left:12px}
 .t{position:absolute;top:2px;right:2px;display:flex;gap:1px}.t button:not(.a){opacity:0}.c:hover .t button,.r .t button{opacity:1} /* los activos (★ ⏻) se ven siempre; el resto al pasar el ratón */
-.t button,.r button{border:0;border-radius:3px;background:#0003;color:inherit;width:20px;height:18px;padding:0;cursor:pointer;font-size:11px}
+.t button,.r button{border:0;border-radius:3px;background:#0003;color:inherit;width:20px;height:18px;padding:0;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
 .t button:hover,.r button:hover{background:#0006}.t button.a,.r button.a{background:#222;color:#ffd83b}
 .v{border:2px dashed #555;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#777;font-size:24px;cursor:pointer}
 .v:hover{border-color:#aaa;color:#ccc}
@@ -22,7 +22,14 @@ body{font:13px 'Segoe UI',sans-serif;color:#eee;background:#262626;display:flex;
 footer{flex:none;display:flex;gap:8px;padding:0 10px 10px}
 footer button{border:0;border-radius:3px;background:#3a3a3a;color:#eee;padding:5px 10px;cursor:pointer;font:inherit}
 footer button:hover{background:#4a4a4a}footer i{flex:1}
+.t svg,.r svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}.t button.a svg.star{fill:currentColor}
 </style>
+<svg style="display:none"><defs>
+<symbol id=i-star viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+<symbol id=i-power viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.72 0M12 2v10"/></symbol>
+<symbol id=i-x viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+<symbol id=i-trash viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+</defs></svg>
 <div id=g></div><div id=l></div>
 <footer><button data-a=nueva>＋ Nueva</button><i></i><button id=mas data-a=mas style="display:none"></button></footer>
 <script>
@@ -30,7 +37,8 @@ let L=[],lista=false;
 const titulo=n=>{const t=n.html.replace(/<\/(div|p|li|h\d)>|<br\s*\/?>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').split('\n').map(s=>s.trim()).find(Boolean)||'(vacía)';return t.length>40?t.slice(0,39)+'…':t};
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // ★ principal (siempre arranca) · ⏻ arranca con Windows (si no, la nota queda dormida) · ✕ cerrar (dormir ahora) · 🗑 eliminar (también con clic derecho)
-const btn=n=>`<span class=t><button data-a=main class="${n.main?'a':''}" title="Principal">★</button><button data-a=ini class="${n.start?'a':''}" title="${n.main?'La principal siempre arranca':'Abrir al iniciar'}">⏻</button>${n.open?'<button data-a=cerrar title="Cerrar (dormir)">✕</button>':''}<button data-a=borrar title="Eliminar la nota (o clic derecho sobre ella)">🗑</button></span>`;
+const ico=i=>`<svg class=${i}><use href="#i-${i}"/></svg>`; // iconos propios (sprite de arriba): con símbolos de la fuente, según el equipo faltaban o salían como emoji
+const btn=n=>`<span class=t><button data-a=main class="${n.main?'a':''}" title="Principal">${ico('star')}</button><button data-a=ini class="${n.start?'a':''}" title="${n.main?'La principal siempre arranca':'Abrir al iniciar'}">${ico('power')}</button>${n.open?`<button data-a=cerrar title="Cerrar (dormir)">${ico('x')}</button>`:''}<button data-a=borrar title="Eliminar la nota (o clic derecho sobre ella)">${ico('trash')}</button></span>`;
 function pintar(){
   const g=document.getElementById('g'),l=document.getElementById('l'),mas=document.getElementById('mas'),res=L.slice(8);
   g.innerHTML=L.slice(0,8).map(n=>`<div class="c ${n.open?'on':'off'}" data-id="${n.id}" style="background:${n.color}"><div class=m>${n.html}</div>${btn(n)}</div>`).join('')
