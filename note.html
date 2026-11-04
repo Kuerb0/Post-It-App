@@ -54,6 +54,10 @@ button.on{opacity:1;background:#0003}
 #ed .rep{margin:0 4px 0 0;user-select:none;cursor:pointer}#ed .rep svg{width:13px;height:13px;vertical-align:-2px;opacity:.65}
 #dts{display:none;flex:none;align-items:center;gap:2px;padding:2px 6px;background:#0002;font-size:13px}
 #dts button{width:auto;padding:0 8px;font-size:13px;opacity:.85}
+#fcp{display:none;flex:none;align-items:center;flex-wrap:wrap;gap:3px 4px;padding:3px 6px;background:#0002;font-size:13px}
+#fcp #fcs{display:inline-flex;gap:3px;margin-left:4px}#fcp #fcs button{width:20px;height:20px;border-radius:50%;opacity:1;border:2px solid #0004}#fcp #fcs button:hover{border-color:#fff8;transform:scale(1.12)}
+#fcp #fca{width:auto;padding:0 8px;font-size:13px;opacity:.85;height:22px}#fcp #fcc{width:26px;height:22px;padding:0;border:0;background:none;cursor:pointer}
+#fcb{box-shadow:inset 0 -3px 0 var(--fc,transparent)} /* la raya de debajo enseña el último color usado */
 .back{font-size:12px;opacity:.7;margin-left:6px;user-select:none}
 #tb{flex:none;display:flex;flex-wrap:wrap;align-items:center;background:#0001;padding:0 2px}
 #tb s{width:1px;height:16px;background:#0003;margin:0 3px}
@@ -99,8 +103,9 @@ button.on{opacity:1;background:#0003}
 <symbol id=i-clear viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21M22 21H7M5 11l9 9"/></symbol>
 <symbol id=i-refresh viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></symbol>
 <symbol id=i-gear viewBox="0 0 24 24"><circle cx=12 cy=12 r=3 /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
-<symbol id=i-tableviewBox="0 0 24 24"><rect width=18 height=18 x=3 y=3 rx=2 /><path d="M3 9h18M3 15h18M12 3v18"/></symbol>
-<symbol id=i-textsizeviewBox="0 0 24 24"><path d="M3 7V5h13v2M10 5v14M12 19H8M15 13v-1h6v1M18 12v7M17 19h2"/></symbol>
+<symbol id=i-fcolor viewBox="0 0 24 24"><path d="M5 16 12 3l7 13M7.6 11h8.8"/><path d="M4 21h16"/></symbol>
+<symbol id=i-table viewBox="0 0 24 24"><rect width=18 height=18 x=3 y=3 rx=2 /><path d="M3 9h18M3 15h18M12 3v18"/></symbol>
+<symbol id=i-textsize viewBox="0 0 24 24"><path d="M3 7V5h13v2M10 5v14M12 19H8M15 13v-1h6v1M18 12v7M17 19h2"/></symbol>
 </defs></svg>
 
 <div id=bar>
@@ -122,6 +127,7 @@ button.on{opacity:1;background:#0003}
 </div>
 <div id=est><span class=g>Letra <button data-r=fsr data-m=- title="Menos">−</button><input type=range id=fsr min=9 max=30 step=1><button data-r=fsr data-m=+ title="Más">+</button><span id=fsv></span></span><span class=g>Interlineado <button data-r=lhr data-m=- title="Menos">−</button><input type=range id=lhr min=1 max=2.6 step=.05><button data-r=lhr data-m=+ title="Más">+</button><span id=lhv></span></span><button id=estr>Restablecer</button></div>
 <div id=ed contenteditable spellcheck=false></div>
+<div id=fcp>Color del texto: <span id=fcs></span><button id=fca title="Quitar el color: vuelve al de la nota">Automático</button><input type=color id=fcc value="#d93025" title="Otro color…"></div>
 <div id=dts>Anadir fechas: <button data-n=2>+2</button><button data-n=3>+3</button><button data-n=5>+5</button><button data-n=7>+7</button><button data-n=14>+14</button><button data-n=30>+30</button> dias</div>
 <button id=gear title="Ajustes de la tabla (o clic derecho en una celda)"><svg><use href="#i-gear"/></svg></button>
 <div id=tp style="display:none"></div><input type=date id=dpk style="position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none">
@@ -131,6 +137,7 @@ button.on{opacity:1;background:#0003}
   <button data-c=underline title="Subrayado (Ctrl+U)"><svg><use href="#i-underline"/></svg></button>
   <button data-c=strike title="Tachado (Ctrl+T)"><svg><use href="#i-strike"/></svg></button><s></s>
   <button data-c=hl title="Resaltar (Ctrl+Shift+H)"><svg><use href="#i-hl"/></svg></button>
+  <button data-c=color id=fcb title="Color del texto (Ctrl+Shift+J): el de lo seleccionado o, sin selección, el de lo que escribas a continuación"><svg><use href="#i-fcolor"/></svg></button>
   <button data-c=head title="Título (Ctrl+Shift+1)"><svg><use href="#i-head"/></svg></button><s></s>
   <button data-c=task title="Tarea ☐ (Ctrl+Enter, o escribe '- ' / '[] ')"><svg><use href="#i-task"/></svg></button>
   <button data-c=repeat title="Periodica: copia la linea como tarea bajo las fechas siguientes (14/10, 15/10...). Escribe en la linea 'cada 2 lunes', 'cada 3 dias'... para elegir cuando (Ctrl+Shift+R)"><svg><use href="#i-repeat"/></svg></button>
@@ -153,6 +160,7 @@ button.on{opacity:1;background:#0003}
   <div><b>Ctrl+B / I / U</b> negrita, cursiva, subrayado</div>
   <div><b>Ctrl+T</b> tachado (también Ctrl+Shift+X)</div>
   <div><b>Ctrl+Shift+H</b> resaltar (otra vez: quitar el resaltado)</div>
+  <div><b>Ctrl+Shift+J</b> color del texto (el botón <b>A</b> de la barra): elige un color o «Automático» para volver al de la nota</div>
   <div><b>Ctrl+Shift+1</b> título</div>
   <div><b>Ctrl+Espacio</b> quitar el formato</div>
   <div><b>Ctrl+Z / Ctrl+Y</b> deshacer / rehacer</div>
@@ -647,7 +655,7 @@ function hlOn(){
 }
 const A={
   bold:()=>ex('bold'),italic:()=>ex('italic'),underline:()=>ex('underline'),strike:()=>ex('strikeThrough'),
-  hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),
+  hl:()=>ex('hiliteColor',hlOn()?'transparent':HL),color:()=>fcToggle(),
   head:()=>ex('formatBlock',document.queryCommandValue('formatBlock')=='h3'?'div':'h3'),
   ul:()=>ex('insertUnorderedList'),ol:()=>ex('insertOrderedList'),task,repeat,table,dates:()=>toggleDates(),
   sort:sortFolds,
@@ -660,11 +668,29 @@ const A={
   indent:()=>ex('indent'),outdent:()=>ex('outdent'),clear:()=>ex('removeFormat'),
 };
 // combo (c=Ctrl s=Shift a=Alt) : tecla física
-const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
+const K={'c:KeyT':'strike','cs:KeyX':'strike','cs:KeyH':'hl','cs:KeyJ':'color','cs:Digit1':'head','cs:Digit8':'ul','cs:KeyL':'ul',
   'cs:Digit7':'ol','c:Enter':'task','c:Space':'clear','cs:KeyR':'repeat','cs:KeyD':'dates','cs:KeyT':'table','cs:KeyF':'fold','cs:KeyO':'sort','Tab':'indent','s:Tab':'outdent'};
+// color del texto: un panel con colores (y uno a elegir). Se aplica a la selección o, sin selección, a lo que se escriba a continuación (foreColor)
+const FC=['#000000','#5f6368','#d93025','#e8710a','#b58900','#188038','#1a73e8','#9334e6','#d01884','#ffffff'];
+fcs.innerHTML=FC.map(c=>`<button data-v="${c}" style="background:${c}" title="${c}"></button>`).join('');
+let fcSel=null; // la última selección dentro del texto: el selector de color nativo le quita el foco al editor, y así se vuelve a ella
+document.addEventListener('selectionchange',()=>{const s=getSelection();if(s.rangeCount&&ed.contains(s.anchorNode))fcSel=s.getRangeAt(0).cloneRange()});
+try{const u=localStorage.getItem('fc');if(u)fcb.style.setProperty('--fc',u)}catch{}
+const fcToggle=()=>{const v=fcp.style.display!='flex';fcp.style.display=v?'flex':'none';fcb.classList.toggle('on',v)};
+function fcApply(v){
+  ed.focus();
+  if(fcSel){const s=getSelection();s.removeAllRanges();s.addRange(fcSel)}
+  document.execCommand('styleWithCSS',false,true); // style="color:…" y no <font color>: el texto de la nota sigue siendo HTML corriente
+  ex('foreColor',v);
+  document.execCommand('styleWithCSS',false,false);
+  if(v!='inherit'){fcb.style.setProperty('--fc',v);try{localStorage.setItem('fc',v)}catch{}}else fcb.style.removeProperty('--fc');
+}
+fcp.onmousedown=e=>{if(e.target!==fcc)e.preventDefault()}; // los botones no le quitan la selección al texto
+fcp.onclick=e=>{const b=e.target.closest('button');if(!b)return;fcApply(b.id=='fca'?'inherit':b.dataset.v);fcp.style.display='none';fcb.classList.remove('on')};
+fcc.onchange=()=>{fcApply(fcc.value);fcp.style.display='none';fcb.classList.remove('on')};
 const toggleHelp=()=>help.style.display=help.style.display=='block'?'none':'block';
 const G={'c:KeyN':()=>api.add(),'c:KeyL':()=>api.lanz('menu'),'c:KeyM':()=>api.min(),'c:KeyW':()=>api.close(),'cs:KeyC':()=>col.click(),'cs:KeyP':()=>zb.click(),'cs:KeyG':()=>gl.click(),'cs:KeyK':()=>cb.click(),
-  'F1':toggleHelp,'Escape':()=>{help.style.display='none';tpOpen()&&closeTp()},'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
+  'F1':toggleHelp,'Escape':()=>{help.style.display='none';fcp.style.display='none';fcb.classList.remove('on');tpOpen()&&closeTp()},'a:ArrowUp':()=>move(-1),'a:ArrowDown':()=>move(1)};
 
 document.onkeydown=e=>{
   if(slN&&slash.style.display=='block'){ // menú «/» abierto: él se queda las flechas, Intro/Tab y Esc
