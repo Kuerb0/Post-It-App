@@ -1,2 +1,2 @@
-Los iconos del lanzador (principal, arrancar, cerrar, borrar) ahora son propios y se ven igual en todos los equipos.
-Nuevo botón A para el color del texto; arreglados los iconos de tamaño de letra y de tabla de eventos.
+Menú de formato al hacer clic derecho sobre un texto seleccionado: negrita, cursiva, subrayado, tachado, resaltado, título, color y color complementario al de la nota.
+Nuevo tráiler (herramientas/trailer.py), grabado con la propia app.

@@ -1,0 +1,187 @@
+<meta charset="utf-8">
+<title>Tráiler de Post-It</title>
+<style>
+/* Un escenario 16:9 en un canvas. La nota, el menú de clic derecho, la tabla, las carpetas, el lanzador y el calendario son capturas de la app REAL
+   (herramientas/trailer_capturas.py las saca de note.html, lanzador.html y calendario.html con teclado y ratón de verdad); aquí solo se animan. */
+html, body { margin: 0; background: #0b0c10; }
+body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+canvas { display: block; width: 100%; max-width: 1100px; aspect-ratio: 16 / 9; cursor: pointer; background: #000; }
+p { margin: 0; color: #8e8e93; font: 12px "Segoe UI", sans-serif; }
+.video body { padding: 0; display: block; }
+.video canvas { width: 1920px; max-width: none; height: 1080px; }
+.video p { display: none; }
+</style>
+<canvas id="cv" aria-label="Tráiler de Post-It: notas adhesivas con tareas, menú de formato con clic derecho, tablas de eventos por colores, carpetas, lanzador y calendario"></canvas>
+<p>Clic en la imagen para ver el tráiler (o pausarlo). Datos de ejemplo: nada de lo que se ve es de nadie.</p>
+<script src="../trailer/capturas/capturas.js"></script>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = 960, H = 540, END = 54.6;
+// Tiempo de la película (u) frente al del guion (t): todo un 15 % más lento y la escena del menú de formato (R0–R1, selección + clic derecho + color) un 60 % más larga
+// (igual que U en trailer.py: si cambias una, cambia la otra).
+const LENTO = 1.15, R0 = 11.9, R1 = 20.7, EX = .6;
+const aU = t => LENTO * (t + EX * (Math.min(Math.max(t, R0), R1) - R0));
+const deU = u => { const v = u / LENTO; return v <= R0 ? v : v <= R1 + EX * (R1 - R0) ? R0 + (v - R0) / (1 + EX) : v - EX * (R1 - R0); };
+const OUT = aU(END);
+const F = "'Segoe UI', system-ui, sans-serif";
+const AMA = '#fff176', TEXTO = '#f2f2f7', TENUE = '#8e8e93', TINTA = '#222';
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ramp = (t, a, d) => clamp((t - a) / d);
+const out = x => 1 - Math.pow(1 - x, 3), io = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+function text(s, x, y, size, color, align = 'center', weight = 400) {
+  ctx.font = `${weight} ${size}px ${F}`; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = color; ctx.fillText(s, x, y);
+}
+function typed(s, x, y, size, color, t, a, cps = 32, align = 'center', weight = 400) {
+  const n = Math.min(s.length, Math.max(0, Math.floor((t - a) * cps) + 1)); if (t < a) return;
+  text(s.slice(0, n), x, y, size, color, align, weight);
+}
+function caption(s, t, a, b, y = 505, f = .3) {
+  const k = ramp(t, a, f) * (1 - ramp(t, b - f, f)); if (k <= 0) return;
+  ctx.globalAlpha = k; ctx.font = `600 25px ${F}`;
+  const w = Math.min(ctx.measureText(s).width, 900) + 36;
+  ctx.fillStyle = 'rgba(8,9,12,.78)'; ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, y - 29, w, 42, 10); ctx.fill();
+  typed(s, W / 2, y, 25, TEXTO, t, a, 60, 'center', 600); ctx.globalAlpha = 1;
+}
+
+/* ---------- las capturas de la app real ---------- */
+const IMG = {};
+const cargar = Promise.all(Object.entries(CAP.img).map(([k, v]) => new Promise(ok => { const im = new Image(); im.onload = ok; im.onerror = ok; im.src = v; IMG[k] = im; })))
+  .then(() => new Promise(ok => { const im = new Image(); im.onload = ok; im.onerror = ok; im.src = CAP.icono; IMG.__icono = im; }));
+const EST = CAP.estados.slice().sort((a, b) => a[0] - b[0]);
+const P = n => CAP.puntos[n];
+/* la captura de esa escena que toca en t (la última con tiempo ≤ t) y, un instante, la anterior: un fundido corto entre estados */
+function estadoEn(t, pref) {
+  const l = EST.filter(e => pref.includes(e[1][0])); let i = -1;
+  for (let j = 0; j < l.length; j++) if (l[j][0] <= t) i = j; else break;
+  if (i < 0) return null;
+  const k = i > 0 ? clamp((t - l[i][0]) / Math.min(.3, l[i][0] - l[i - 1][0])) : 1;
+  return { act: IMG[l[i][1]], ant: i > 0 ? IMG[l[i - 1][1]] : null, k };
+}
+function ventana(e, x, y, w, h, alpha) {   // dibuja la captura (y su sombra) en el lienzo
+  if (!e || alpha <= 0) return;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12; ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, h); ctx.shadowColor = 'transparent';
+  if (e.ant && e.k < 1) ctx.drawImage(e.ant, x, y, w, h);
+  ctx.globalAlpha = alpha * (e.ant ? e.k : 1); ctx.drawImage(e.act, x, y, w, h); ctx.restore();
+}
+
+/* ---------- dónde van las ventanas ---------- */
+const SC = .95, [NWc, NHc] = CAP.nota, NX = (W - NWc * SC) / 2, NY = 36;     // la nota (ventana de note.html)
+const nota = (px, py) => [NX + px * SC, NY + py * SC];
+const LS = 1.12, [LWc, LHc] = CAP.lanz, LX = (W - LWc * LS) / 2, LY = 78;      // el lanzador
+const lanz = (px, py) => [LX + px * LS, LY + py * LS];
+const [CWc, CHc] = CAP.cfg, CF = .92, CX = (W - CWc * CF) / 2, CY = 44;           // la ventana «Calendario en tus notas»
+
+/* ---------- el cursor ---------- */
+const lz = P('thumb'), tpc = P('tp_clic'), fc = P('fold_cumple'), rf = P('ref');
+const CUR = [
+  [11.3, 800, 330], [11.9, ...nota(...P('sel_ini'))], [12.8, ...nota(...P('sel_fin'))], [13.2, ...nota(...P('clic_der'))],
+  [14.5, ...nota(...P('item1'))], [14.75, ...nota(...P('item1'))], [15.45, ...nota(...P('clic_der'))], [16.55, ...nota(...P('item2'))], [16.8, ...nota(...P('item2'))],
+  [17.65, ...nota(...P('clic_der'))], [18.8, ...nota(...P('item3'))], [19.1, ...nota(...P('item3'))], [20.2, 790, 380],
+  [26.9, 790, 300], [27.8, ...nota(...tpc)], [28.9, ...nota(...tpc)],
+  [29.9, 790, 330], [30.6, ...nota(...fc)], [31.2, ...nota(...fc)],
+  [36.7, 760, 330], [39.1, ...lanz(...lz)], [40.2, ...lanz(...lz)],
+  [40.9, 760, 90], [41.8, ...nota(...rf)], [42.0, ...nota(...rf)], [43.0, 780, 380]];
+const CLICKS = [[13.2, 1], [14.6, 0], [15.5, 1], [16.6, 0], [17.7, 1], [18.9, 0], [27.9, 1], [30.7, 0], [40.0, 0], [41.9, 0]];
+const FADES = [[11.3, 20.8], [26.9, 29.2], [29.9, 31.6], [36.7, 40.4], [40.9, 43.2]];
+function cursorPos(t) {
+  if (t <= CUR[0][0]) return [CUR[0][1], CUR[0][2]];
+  let i = 1; while (i < CUR.length - 1 && CUR[i][0] < t) i++;
+  const a = CUR[i - 1], b = CUR[i], k = io(clamp((t - a[0]) / (b[0] - a[0])));
+  return [lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+}
+function cursor(t) {
+  let al = 0; FADES.forEach(([a, b]) => { al = Math.max(al, ramp(t, a, .3) * (1 - ramp(t, b, .3))); }); if (al <= 0) return;
+  const [x, y] = cursorPos(t);
+  CLICKS.forEach(([c, der]) => { const q = ramp(t, c, .45); if (q > 0 && q < 1) { ctx.beginPath(); ctx.arc(x, y, 4 + 18 * q, 0, 7); ctx.strokeStyle = der ? `rgba(255,216,59,${.85 * (1 - q)})` : `rgba(255,255,255,${.7 * (1 - q)})`; ctx.lineWidth = 2; ctx.stroke(); } });
+  ctx.globalAlpha = Math.min(1, al); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 17); ctx.lineTo(x + 4.5, y + 13); ctx.lineTo(x + 8, y + 20); ctx.lineTo(x + 10.5, y + 19); ctx.lineTo(x + 7, y + 12); ctx.lineTo(x + 12.5, y + 12); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+/* ---------- escritorio ---------- */
+function escritorio(t) {
+  const a = ramp(t, 2.7, .6); if (a <= 0) return;
+  ctx.globalAlpha = a;
+  const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#22345c'); g.addColorStop(.55, '#3c2f5e'); g.addColorStop(1, '#141c2c'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const r = ctx.createRadialGradient(700, 420, 20, 700, 420, 420); r.addColorStop(0, 'rgba(255,241,118,.16)'); r.addColorStop(1, 'rgba(255,241,118,0)'); ctx.fillStyle = r; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,.055)'; ctx.beginPath(); ctx.roundRect(40, 90, 230, 330, 12); ctx.fill(); ctx.beginPath(); ctx.roundRect(700, 150, 220, 250, 12); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(40, 90, 230, 24); ctx.fillRect(700, 150, 220, 24);
+  [[130, 170], [160, 200], [190, 130], [220, 190], [250, 150]].forEach(([y, w]) => { ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(58, y + 18, w, 9); });
+  [[210, 150], [240, 120], [270, 160]].forEach(([y, w]) => { ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(716, y, w, 9); });
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- escenas sueltas ---------- */
+function intro(t) {
+  const a = 1 - ramp(t, 2.5, .5); if (a <= 0) return;
+  ctx.globalAlpha = a; typed('Apuntar no debería costar nada.', W / 2, 240, 42, TEXTO, t, .2, 24, 'center', 700);
+  typed('Encontrarlo, tampoco.', W / 2, 310, 42, AMA, t, 1.5, 24, 'center', 700); ctx.globalAlpha = 1;
+}
+function titulo_final(t) {
+  const a = ramp(t, 50.8, .8); if (a <= 0) return;
+  ctx.globalAlpha = a; ctx.fillStyle = '#0b0c10'; ctx.fillRect(0, 0, W, H);
+  const p = out(ramp(t, 51.2, 1.2)); ctx.globalAlpha = a * p; const s = lerp(.6, 1, p), im = IMG.__icono, sz = 150 * s;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8; if (im && im.width) ctx.drawImage(im, W / 2 - sz / 2, 165 - sz / 2, sz, sz); ctx.restore();
+  ctx.globalAlpha = a * ramp(t, 51.8, .6); text('Post-It', W / 2, 322, 66, TEXTO, 'center', 700);
+  ctx.globalAlpha = a * ramp(t, 52.3, .6); text('Tus notas, siempre a la vista', W / 2, 366, 25, TENUE);
+  ctx.globalAlpha = a * ramp(t, 52.9, .6); ctx.font = `600 21px ${F}`; const w = ctx.measureText('kuerb0.github.io/portal').width + 40; ctx.fillStyle = AMA; ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, 396, w, 42, 8); ctx.fill(); text('kuerb0.github.io/portal', W / 2, 424, 21, TINTA, 'center', 600);
+  ctx.globalAlpha = a * ramp(t, 53.4, .6); text('Notas adhesivas de escritorio para Windows', W / 2, 474, 15, TENUE); ctx.globalAlpha = 1;
+}
+
+/* ---------- el reloj ---------- */
+function render(t) {
+  ctx.setTransform(k, 0, 0, k, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  escritorio(t); intro(t);
+  // la nota: cae al escritorio; cada escena (tareas y menú · tabla · carpetas) toma la captura que toca, con un fundido corto entre escenas
+  const caida = -(NHc * SC + 80) * (1 - out(ramp(t, 3.2, .9)));
+  const esc = [['ab', 3.2, 20.9, .1, .4], ['c', 20.9, 29.3, .4, .4], ['d', 29.3, 36.3, .4, .4]];
+  ctx.save(); ctx.translate(0, caida);
+  esc.forEach(([pref, a, b, fi, fo]) => { const al = ramp(t, a, fi) * (1 - ramp(t, b - fo, fo)); if (al > 0) ventana(estadoEn(t, pref), NX, NY, NWc * SC, NHc * SC, al); });
+  ctx.restore();
+  // el lanzador (clic en la bandeja) y, al elegir una nota, la nota unida al Calendario
+  const al = ramp(t, 36.6, .4) * (1 - ramp(t, 40.1, .3)); if (al > 0) { const p = out(ramp(t, 36.6, .5)); ctx.save(); ctx.translate(W / 2, LY + LHc * LS); ctx.scale(lerp(.94, 1, p), lerp(.94, 1, p)); ctx.translate(-W / 2, -(LY + LHc * LS)); ventana(estadoEn(t, 'e'), LX, LY, LWc * LS, LHc * LS, al); ctx.restore(); }
+  const af = ramp(t, 40.4, .4) * (1 - ramp(t, 46.0, .5)); if (af > 0) { const p = out(ramp(t, 40.4, .4)); ctx.save(); ctx.translate(W / 2, NY + NHc * SC / 2); ctx.scale(lerp(.94, 1, p), lerp(.94, 1, p)); ctx.translate(-W / 2, -(NY + NHc * SC / 2)); ventana(estadoEn(t, 'f'), NX, NY, NWc * SC, NHc * SC, af); ctx.restore(); }
+  // la ventana «Calendario en tus notas» (calendario.html), con la barra de título de Windows
+  const ac = ramp(t, 46.2, .4) * (1 - ramp(t, 50.4, .4)); if (ac > 0) {
+    ctx.save(); ctx.globalAlpha = ac; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12; ctx.fillStyle = '#1c1c1c'; ctx.fillRect(CX, CY - 24, CWc * CF, 24); ctx.shadowColor = 'transparent';
+    text('Post-It · Calendario', CX + 12, CY - 8, 11.5, '#ddd', 'left'); text('✕', CX + CWc * CF - 18, CY - 8, 11, '#ddd'); ctx.restore();
+    ventana(estadoEn(t, 'g'), CX, CY, CWc * CF, CHc * CF, ac);
+  }
+  cursor(t); titulo_final(t);
+  caption('Tu nota, siempre a la vista en el escritorio', t, 3.6, 5.3);
+  caption('Escribe «- » y la línea pasa a ser una tarea', t, 5.4, 10.3);
+  caption('Ctrl+Enter la marca como hecha', t, 10.4, 11.9);
+  caption('Selecciona una frase…', t, 11.9, 13.1);
+  caption('…clic derecho: negrita, cursiva, subrayado, resaltado', t, 13.2, 15.4);
+  caption('Cambia el color del texto', t, 15.5, 17.6);
+  caption('…o ponle el complementario al de tu nota', t, 17.7, 20.6);
+  caption('Tablas: cada fila toma el color de los días que faltan', t, 21.2, 26.4);
+  caption('Las pasadas se apagan y las filas se ordenan solas', t, 26.5, 27.9);
+  caption('Clic derecho: ajustes, reglas de color, filas y columnas', t, 28.0, 29.3);
+  caption('Carpetas que se abren y se cierran con un clic', t, 29.5, 32.3);
+  caption('Se ordenan solas por la fecha que llevan dentro', t, 32.5, 36.0);
+  caption('Todas tus notas en el lanzador, cada una de su color', t, 36.6, 40.3);
+  caption('Une tu calendario: los eventos salen bajo cada fecha', t, 40.9, 45.9);
+  caption('Lee Outlook clásico o tu enlace ICS', t, 46.4, 50.3);
+}
+let playing = false, tNow = 0, last = 0, raf = 0, k = 1;
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; if (playing) tNow += dt;
+  if (tNow >= OUT) { tNow = OUT; playing = false; }
+  render(deU(tNow)); if (playing) raf = requestAnimationFrame(frame);
+}
+const VIDEO = location.search.includes('video');
+function fit() {
+  if (VIDEO) return;
+  const d = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth || W; cv.width = Math.round(w * d); cv.height = Math.round(w * d * H / W); k = cv.width / W; if (!playing) render(deU(tNow));
+}
+cv.addEventListener('click', () => { if (playing) playing = false; else { if (tNow >= OUT) tNow = 0; playing = true; last = performance.now(); raf = requestAnimationFrame(frame); } });
+window.addEventListener('resize', fit);
+tNow = OUT - 3;
+const listo = Promise.all([document.fonts.load('600 20px "Segoe UI"').catch(() => {}), cargar]).then(() => true);
+if (VIDEO) {
+  document.documentElement.classList.add('video'); cv.width = 1920; cv.height = 1080; k = 2; window.__duracion = OUT;
+  window.__frame = t => { render(deU(t)); return cv.toDataURL('image/jpeg', .96).slice(23); }; window.__listo = listo;
+} else listo.then(fit);
+</script>
