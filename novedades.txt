@@ -1,2 +1,2 @@
-Menú de formato al hacer clic derecho sobre un texto seleccionado: negrita, cursiva, subrayado, tachado, resaltado, título, color y color complementario al de la nota.
-Nuevo tráiler (herramientas/trailer.py), grabado con la propia app.
+Nueva opción «/» › Emoticonos: un panel por categorías para poner emoticonos en la nota.
+Columnas de tabla que se pueden ocultar (clic derecho › Ocultar): el texto toma el color de la tabla, ideal para apuntar regalos junto a los cumpleaños.
