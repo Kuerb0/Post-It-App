@@ -19,13 +19,16 @@ button.on{opacity:1;background:#0003}
 #ed .fold::before{content:'▾ ';opacity:.6}#ed .fold[data-closed]::before{content:'▸ '}
 #ed .hid{display:none}
 #ed .alarm{background:#0002;border-radius:10px;padding:0 7px;font-size:.85em;cursor:pointer;white-space:nowrap;user-select:none}#ed .alarm.past{opacity:.5;text-decoration:line-through}
-#slash,#alp{position:fixed;z-index:5;display:none;background:#262626;color:#eee;border-radius:6px;box-shadow:0 3px 12px #0008;font-size:13px}
+#slash,#alp,#cnp{position:fixed;z-index:5;display:none;background:#262626;color:#eee;border-radius:6px;box-shadow:0 3px 12px #0008;font-size:13px}
 #cm{position:fixed;z-index:7;display:none;background:#262626;color:#eee;border-radius:6px;box-shadow:0 3px 12px #0008;padding:4px;width:max-content;max-width:calc(100vw - 8px)}
 #cm .r{display:flex;align-items:center;flex-wrap:wrap;gap:2px;padding:2px}#cm .r+.r{border-top:1px solid #555;margin-top:2px;padding-top:5px}
 #cm button{width:28px;height:26px;border-radius:4px;opacity:.9;color:#eee}#cm button:hover{background:#0a84ff}
 #cm #cms button{width:18px;height:18px;border-radius:50%;border:2px solid #fff4;margin:0 1px}#cm #cms button:hover{border-color:#fff;transform:scale(1.15)}
 #cm button.w{width:auto;padding:0 8px;font-size:12px}#cm #cmc{width:26px;height:22px;padding:0;border:0;background:none;cursor:pointer;margin-left:auto}
 #slash{min-width:150px;padding:3px}#slash div{padding:4px 10px;border-radius:4px;cursor:pointer}#slash div.sel{background:#0a84ff}
+#cnp{padding:8px;flex-direction:column;gap:6px}#cnp .r{display:flex;gap:6px;align-items:center}#cnp .l{display:flex;flex-direction:column;gap:3px}#cnp .l:empty{display:none}#cnp .l div{display:flex;gap:8px;align-items:center;justify-content:space-between;font-variant-numeric:tabular-nums}#cnp .l .z{color:#ff6b6b}
+#cnp input,#cnp select{font:inherit;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 4px;color-scheme:dark}#cnp input{width:64px}
+#cnp button{width:auto;height:auto;padding:3px 10px;background:#3a3a3a;border-radius:4px;opacity:1}#cnp button:hover{background:#4a4a4a}
 #alp{padding:8px;gap:6px;align-items:center}#alp input{font:inherit;background:#3a3a3a;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 4px;color-scheme:dark}
 #alp button{width:auto;height:auto;padding:3px 10px;background:#3a3a3a;border-radius:4px;opacity:1}#alp button:hover{background:#4a4a4a}
 #ed [data-d]{font-weight:700} /* cabecera de fecha detectada (paintDias): todo en negrita, día de la semana incluido */
@@ -171,6 +174,7 @@ button.on{opacity:1;background:#0003}
 </div><div class=r id=cms></div><div class=r><button data-v=inherit class=w>Color automático</button><input type=color id=cmc value="#d93025" title="Otro color…"></div><div class=r><button data-v=comp class=w title="Color opuesto en el círculo cromático al del post-it, con la claridad ajustada para que se lea">Color complementario</button></div></div>
 <div id=slash></div><div id=emo></div>
 <div id=alp style="display:none"><input type=datetime-local id=alt><button id=alok>OK</button><button id=alno title="Quitar la alarma">Quitar</button></div>
+<div id=cnp style="display:none"><div class=r><input type=number id=cnv min=1 step=any value=5><select id=cnu><option value=1>min<option value=60>h</select><button id=cnok>OK</button></div><div class=l id=cnl></div></div>
 <div id=help onclick="help.style.display='none'">
   <div class=hd>Atajos y ayuda <span>(Esc o clic para cerrar · rueda para bajar)</span></div>
 
@@ -205,8 +209,9 @@ button.on{opacity:1;background:#0003}
   <div><b>Una fecha sola</b> en una línea (<i>Lunes 02/11</i>, <i>14/10</i>, <i>14-10-2027</i>) es una cabecera: sale en negrita con «hoy», «mañana» o «faltan N días»; bajo ella pones las tareas de ese día. Sin año, se entiende el próximo</div>
   <div><b>Ctrl+Shift+D</b> añadir varias fechas seguidas de golpe (+2, +3, +5, +7, +14, +30 días)</div>
   <div><b>Botón de calendario con ✕</b> (barra de arriba) borra solos los días anteriores a hoy de esta nota: cada fecha pasada con todo lo que tiene debajo, al abrirla y al cambiar de día. Pide confirmación al activarlo; lo que haya antes de la primera fecha y hoy no se tocan</div>
-  <div><b>/</b> menú de opciones: ⏰ Alarma, ☑ Tarea, 📁 Carpeta, H Título, • Viñetas, 1. Numerada, 📅 Varias fechas, 🔁 Periódica, 😀 Emoticonos (panel por categorías). Escribe para filtrar, ↑↓ para moverte, Intro para elegir, Esc para salir</div>
+  <div><b>/</b> menú de opciones: ⏰ Alarma, ☑ Tarea, 📁 Carpeta, H Título, • Viñetas, 1. Numerada, 📅 Varias fechas, 🔁 Periódica, 😀 Emoticonos (panel por categorías), ⏳ Cuenta atrás. Escribe para filtrar, ↑↓ para moverte, Intro para elegir, Esc para salir</div>
   <div><b>⏰ Alarma</b> pide fecha y hora (escribiéndola o con el selector) y deja una etiqueta en la línea: a esa hora la nota salta y suena aunque esté cerrada o dormida. Clic en la etiqueta para cambiarla o quitarla</div>
+  <div><b>⏳ Cuenta atrás</b> (menú «/») pide minutos u horas y muestra el tiempo que falta arriba a la derecha de la pantalla (del escritorio, no dentro de la nota); al llegar a 0:00 suena como una alarma, aunque la nota esté cerrada. Se quitan desde el mismo menú</div>
   <div><b>Ctrl+Shift+F</b> carpeta: la línea pasa a ser un título; con un clic esconde o muestra lo que tiene debajo hasta la siguiente carpeta (útil para cumpleaños, listas largas…)</div>
   <div><b>Ctrl+Shift+O</b> ordenar las carpetas por la fecha que llevan dentro: arriba la que llega antes desde hoy (se repite cada año); sin fecha, abajo. Se hace solo al abrir la nota, al salir de ella y al cambiar de día</div>
 
@@ -299,9 +304,9 @@ const paintAlarms=()=>ed.querySelectorAll('.alarm').forEach(alarmLabel);
 const alarms=()=>[...ed.querySelectorAll('.alarm')].map(s=>{
   const k=(s.closest('div,li,h3,p')||s.parentNode).cloneNode(true);k.querySelectorAll('.alarm,.back,.rep,.cal').forEach(x=>x.remove());
   return{t:s.dataset.t,txt:k.textContent.trim().slice(0,80)||'Alarma'};
-});
+}).concat(cn.map(c=>({t:local(new Date(c.fin))+':'+pad2(new Date(c.fin).getSeconds()),txt:'Cuenta atrás de '+cnTxt(c.mins)}))); // las cuentas atrás suenan como alarmas
 let timer;const sv=()=>{refold();paintDias();const k=ed.cloneNode(true);k.querySelectorAll('.cal,.mas').forEach(x=>x.remove());k.querySelectorAll('[data-d],[data-c],[data-f],[data-s]').forEach(x=>{for(const a of['data-d','data-c','data-f','data-s'])x.removeAttribute(a)});k.querySelectorAll('td[data-h],[data-sh]').forEach(x=>{x.removeAttribute('data-h');x.removeAttribute('data-sh')});k.querySelectorAll('tr').forEach(x=>{x.removeAttribute('style');x.removeAttribute('class')}); // lo derivado de las tablas (colores, días, filas ocultas) se recalcula al abrir
-api.save(id,k.innerHTML,alarms());title()}; // los eventos del Calendario no se guardan: se pintan al abrir
+api.save(id,k.innerHTML,alarms(),cn.length?cn:undefined);title()}; // los eventos del Calendario no se guardan: se pintan al abrir
 const later=()=>{clearTimeout(timer);timer=setTimeout(sv,400)};
 const clearBack=c=>{delete c.dataset.back;c.removeAttribute('data-back');c.parentElement.querySelector('.back')?.remove()};
 
@@ -314,7 +319,7 @@ function resets(){
 }
 function load(n){
   document.body.style.background=cp.value=n.color;setZ(n.z);setGlass(n.glass);setCols(n.cols);
-  ed.innerHTML=n.html||'<div><br></div>';setLimpia(n.limpia);sortFolds();refold();if(sortTablas())later();paintDias();paintAlarms();
+  ed.innerHTML=n.html||'<div><br></div>';setLimpia(n.limpia);setCuentas(n.cuentas);sortFolds();refold();if(sortTablas())later();paintDias();paintAlarms();
   hechos=new Set(n.calHechos);
   resets();setCal(n.cal);title();
 }
@@ -782,7 +787,7 @@ ed.oninput=()=>{
   }
   later();
 };
-ed.onblur=()=>{slashClose();if(alOpen()||tpOpen()||dpCell){sv();return} // con el selector de alarma, el panel de tabla o el calendario abiertos no se toca el texto: su posición se perdería
+ed.onblur=()=>{slashClose();if(alOpen()||tpOpen()||cnOpen()||dpCell){sv();return} // con el selector de alarma, el panel de tabla o el calendario abiertos no se toca el texto: su posición se perdería
   copies();sortFolds();sortTablas();lastT=null;paintCal();sv()}; // paintCal: por si se escribió una fecha nueva
 const foldOf=n=>(n?.nodeType==1?n:n?.parentElement)?.closest('.fold');
 let foldWas; // la carpeta donde estaba el cursor antes del clic: un clic ahí solo mueve el cursor (para editar el título), en otra abre/cierra
@@ -798,7 +803,7 @@ ed.onclick=e=>{
 ed.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
 
 // ── «/»: menú de opciones junto al cursor (se filtra al escribir, ↑↓ Intro, Esc). «Alarma» abre el selector de fecha y hora (alp).
-const SL=[['alarm','⏰ Alarma'],['task','☑ Tarea'],['fold','📁 Carpeta'],['head','H Título'],['ul','• Viñetas'],['ol','1. Numerada'],['table','▦ Tabla'],['dates','📅 Varias fechas'],['repeat','🔁 Periódica'],['emo','😀 Emoticonos']];
+const SL=[['alarm','⏰ Alarma'],['task','☑ Tarea'],['fold','📁 Carpeta'],['head','H Título'],['ul','• Viñetas'],['ol','1. Numerada'],['table','▦ Tabla'],['dates','📅 Varias fechas'],['repeat','🔁 Periódica'],['emo','😀 Emoticonos'],['cnt','⏳ Cuenta atrás']];
 let slN=null,slAt=0,slSel=0,slItems=[];
 function caretRect(){
   const s=getSelection();if(!s.rangeCount)return ed.getBoundingClientRect();
@@ -826,7 +831,7 @@ function slashCheck(){
 function slashPick(k){
   const n=slN,s=getSelection();
   n.deleteData(slAt,s.anchorOffset-slAt);s.collapse(n,slAt);slashClose(); // quita «/texto»
-  k=='alarm'?openAlarm():k=='emo'?openEmo():A[k]();
+  k=='alarm'?openAlarm():k=='emo'?openEmo():k=='cnt'?openCnt():A[k]();
 }
 slash.onmousedown=e=>{e.preventDefault();const k=e.target.dataset.k;if(k)slashPick(k)};
 
@@ -850,6 +855,29 @@ emo.onclick=e=>{
   else if(b.dataset.e){ed.focus();document.execCommand('insertText',false,b.dataset.e);later()}
 };
 document.addEventListener('mousedown',e=>{if(emoOpen()&&!emo.contains(e.target))emoClose()},true);
+
+// ── Cuentas atrás: «/» › Cuenta atrás. n.cuentas=[{fin: ISO, mins}]; se ven arriba a la derecha de la pantalla (cuentas.html, lo pinta main.js) y a 0 suenan como una alarma (van en alarms())
+let cn=[],cnTimer=null;
+const cnOpen=()=>cnp.style.display!='none';
+const cnTxt=m=>m%60==0?m/60+' h':m+' min';
+const cnFmt=ms=>{const t=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t/60)%60,s=t%60;return h?h+':'+pad2(m)+':'+pad2(s):pad2(m)+':'+pad2(s)}; // h:mm:ss o mm:ss
+function paintCn(){
+  const f=cn.map(c=>{const ms=new Date(c.fin)-Date.now();return{ms,t:cnFmt(ms)}});
+  if(cnOpen())cnl.innerHTML=cn.map((c,i)=>`<div${f[i].ms<=0?' class=z':''}><span>${f[i].t} · ${cnTxt(c.mins)}</span><button data-i=${i}>Quitar</button></div>`).join('');
+  if(!cn.length&&cnTimer){clearInterval(cnTimer);cnTimer=null} // el reloj solo corre si hay cuentas
+}
+function setCuentas(v){cn=(v||[]).map(c=>({fin:c.fin,mins:c.mins}));paintCn();if(cn.length&&!cnTimer)cnTimer=setInterval(paintCn,1000)}
+function openCnt(){paintCn();showAt(cnp,'flex',caretRect());cnv.focus();cnv.select()}
+function cnClose(){if(!cnOpen())return;cnp.style.display='none';ed.focus()}
+function cnAdd(){
+  const m=Math.round(parseFloat(cnv.value)*cnu.value);if(!(m>=1))return cnv.focus();
+  cn.push({fin:new Date(Date.now()+m*6e4).toISOString(),mins:m});
+  setCuentas(cn);sv();cnClose();
+}
+cnok.onclick=cnAdd;
+cnl.onclick=e=>{const b=e.target.closest('button');if(!b)return;cn.splice(+b.dataset.i,1);setCuentas(cn);sv()};
+cnp.onkeydown=e=>{e.stopPropagation();if(e.key=='Enter'){e.preventDefault();cnAdd()}else if(e.key=='Escape')cnClose()};
+document.addEventListener('mousedown',e=>{if(cnOpen()&&!cnp.contains(e.target))cnClose()},true);
 
 let alRange=null,alSpan=null;
 const alOpen=()=>alp.style.display!='none';
@@ -972,5 +1000,5 @@ document.onselectionchange=()=>{
 api.onMax(v=>{mx.firstElementChild.firstElementChild.setAttribute('href',v?'#i-restore':'#i-max');mx.title=v?'Restaurar tamaño (doble clic en la barra)':'Maximizar (doble clic en la barra)'}); // main avisa al (des)maximizar, también con el doble clic de la barra
 api.onSet(load);
 api.get(id).then(n=>{load(n);ed.focus()});
-setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()){sortFolds();if(sortTablas())later();if(limpiar())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
+setInterval(()=>{resets();if(document.activeElement!==ed&&!alOpen()&&!tpOpen()&&!cnOpen()){sortFolds();if(sortTablas())later();if(limpiar())later()}paintDias();paintAlarms()},60000); // al cambiar de día: «faltan N días» y el orden de las carpetas (sin tocar la nota mientras escribes)
 </script>

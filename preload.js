@@ -1,7 +1,7 @@
 const {contextBridge,ipcRenderer:r}=require('electron');
 contextBridge.exposeInMainWorld('api',{
   get:id=>r.invoke('get',id),
-  save:(id,html,alarms)=>r.send('save',id,html,alarms),
+  save:(id,html,alarms,cuentas)=>r.send('save',id,html,alarms,cuentas),
   color:(id,c)=>r.send('color',id,c),
   z:id=>r.invoke('z',id),
   glass:id=>r.invoke('glass',id),
@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api',{
   hechoCal:(id,k,v)=>r.send('hechoCal',id,k,v),
   lanz:(a,id)=>r.send('lanz',a,id),
   onLanz:f=>r.on('lanz',(_,l)=>f(l)),
+  onCuentas:f=>r.on('cuentas',(_,c)=>f(c)),
   onSet:f=>r.on('set',(_,n)=>f(n)),
   onAgenda:f=>r.on('agenda',(_,ev)=>f(ev)),
 });

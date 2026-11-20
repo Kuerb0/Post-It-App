@@ -15,7 +15,7 @@ const BIENVENIDA=(()=>{
     '<div>Escribe una fecha y verás los días que faltan:</div>'+
     '<div><b>'+f+'</b></div>'+
     '<div><input type="checkbox"> 18:30 Dentista</div>'+
-    '<div><b>/</b> abre un menú: alarma, tarea, carpeta…</div>'+
+    '<div><b>/</b> abre un menú: alarma, cuenta atrás, tarea, carpeta…</div>'+
     '<div>📅 de la barra une la nota a tu calendario; el icono de la bandeja te deja elegir la carpeta de sincronización.</div>'+
     '<div><b>F1</b> te enseña todos los atajos · <b>Ctrl+L</b> todas tus notas.</div>';
 })();
@@ -25,7 +25,7 @@ const ESTADO=S.estadoNuevo();
 const wins=new Map();
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch{return d}};
 const guardarSync=()=>S.escribirSync(DATOS,{notas:notes,borradas,ajustes,colores});
-const save=()=>{borradas=S.marcar(ESTADO,notes);guardarSync();exportar()};
+const save=()=>{borradas=S.marcar(ESTADO,notes);guardarSync();exportar();cuentasOverlay()};
 const find=id=>notes.find(n=>n.id==id);
 const win=e=>BrowserWindow.fromWebContents(e.sender);
 
@@ -128,6 +128,28 @@ async function actualizarEventos(){
     for(const n of notes)if(n.cal)wins.get(n.id)?.webContents.send('agenda',eventos);
   }catch(err){console.error('eventos',err)}finally{leyendo=false}
 }
+// ---- cuentas atrás en el escritorio: ventana transparente y sin ratón, arriba a la derecha de la pantalla principal (cuentas.html). Junta las cuentas de TODAS las notas (también cerradas)
+let cw2,cuentasAct=[];
+function cuentasPos(){
+  if(!cw2||cw2.isDestroyed())return;
+  const a=screen.getPrimaryDisplay().workArea,W=220,H=Math.min(a.height-24,Math.max(1,cuentasAct.length)*34+8);
+  cw2.setBounds({x:a.x+a.width-W-12,y:a.y+12,width:W,height:H});
+}
+function cuentasOverlay(){
+  cuentasAct=notes.flatMap(n=>(n.cuentas||[]).map(c=>({fin:c.fin,mins:c.mins,color:n.color})));
+  if(!app.isReady())return;
+  if(!cuentasAct.length){if(cw2&&!cw2.isDestroyed())cw2.hide();return}
+  if(!cw2||cw2.isDestroyed()){
+    cw2=new BrowserWindow({width:220,height:60,frame:false,transparent:true,backgroundColor:'#00000000',alwaysOnTop:true,skipTaskbar:true,focusable:false,resizable:false,hasShadow:false,show:false,
+      webPreferences:{preload:path.join(__dirname,'preload.js')}});
+    cw2.setAlwaysOnTop(true,'screen-saver');cw2.setVisibleOnAllWorkspaces?.(true);cw2.setIgnoreMouseEvents(true);
+    cw2.loadFile('cuentas.html');
+    cw2.webContents.on('did-finish-load',()=>cw2.webContents.send('cuentas',cuentasAct));
+    screen.on('display-metrics-changed',cuentasPos);
+  }else cw2.webContents.send('cuentas',cuentasAct);
+  cuentasPos();if(!cw2.isVisible())cw2.showInactive();
+}
+
 // ---- lanzador (clic en el icono de la bandeja): miniaturas de las notas, abrir/cerrar, cuáles arrancan y cuál es la principal (lanzador.html)
 let lw,lwCerrado=0,preguntando=false; // preguntando: el aviso de «¿eliminar?» le quita el foco al lanzador y no debe cerrarlo
 const cl=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));
@@ -234,7 +256,7 @@ function unir(archivos){
   const f=S.fusionar([{notas:notes,borradas,ajustes,colores},...archivos]);
   const cambio=JSON.stringify([f.notas,f.ajustes])!=JSON.stringify([notes,ajustes]);
   const habia=new Set(notes.map(n=>n.id));
-  notes=f.notas;borradas=f.borradas;ajustes=f.ajustes;colores=f.colores;S.iniciarEstado(ESTADO,notes,borradas);
+  notes=f.notas;borradas=f.borradas;ajustes=f.ajustes;colores=f.colores;S.iniciarEstado(ESTADO,notes,borradas);cuentasOverlay();
   return {cambio,habia};
 }
 function recargar(){ // otro equipo guardó (OneDrive trajo su fichero): se fusiona y se repintan las notas que no se están usando
@@ -274,7 +296,7 @@ function iniciarSync(){
 }
 
 ipcMain.handle('get',(e,id)=>find(id));
-ipcMain.on('save',(e,id,html,al)=>{const n=find(id);if(n){n.html=html;n.alarms=al?.length?al:undefined;save()}}); // al = alarmas de la nota ({t,txt}), ver comprobarAlarmas
+ipcMain.on('save',(e,id,html,al,cu)=>{const n=find(id);if(n){n.html=html;n.alarms=al?.length?al:undefined;n.cuentas=cu?.length?cu:undefined;save()}}); // al = alarmas de la nota ({t,txt}, incluye las cuentas atrás), ver comprobarAlarmas · cu = cuentas atrás ({fin,mins})
 ipcMain.on('color',(e,id,c)=>{ // c = #rrggbb elegido en el selector
   const n=find(id);if(!n||!/^#[0-9a-f]{6}$/i.test(c))return;
   n.color=c;save();win(e).setBackgroundColor(c);
@@ -339,7 +361,7 @@ app.whenReady().then(()=>{
   const nueva=!notes.length;
   if(nueva)notes.push({id:crypto.randomUUID(),color:COLORS[0],html:BIENVENIDA});
   if(!nueva||ajustes.ics)save(); // la bienvenida no se escribe hasta que toques algo: si OneDrive aún no ha bajado tus notas, no las pisa
-  showAll();iniciarSync();vigilarEscritorio();
+  showAll();cuentasOverlay();iniciarSync();vigilarEscritorio();
 
   aplicarArranque(); // también repara una entrada de inicio que apunte a una ruta vieja
 

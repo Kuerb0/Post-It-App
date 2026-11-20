@@ -1,2 +1,1 @@
-Nueva opción «/» › Emoticonos: un panel por categorías para poner emoticonos en la nota.
-Columnas de tabla que se pueden ocultar (clic derecho › Ocultar): el texto toma el color de la tabla, ideal para apuntar regalos junto a los cumpleaños.
+Post-It 2.6.0: cuentas atrás desde el menú «/» (⏳ Cuenta atrás): salen en el escritorio, arriba a la derecha, aunque la nota esté cerrada y suenan al llegar a cero.

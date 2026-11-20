@@ -1,0 +1,18 @@
+<!doctype html><meta charset=utf-8><title>Cuentas atrás</title>
+<style>
+/* Overlay del escritorio: sin fondo, solo números alineados arriba a la derecha */
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;user-select:none}
+#l{display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:4px 6px;font:700 22px/30px 'Segoe UI',sans-serif;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 3px #000,0 1px 4px #000,0 0 8px #000a}
+#l div{display:flex;align-items:center;gap:8px}#l div.z{color:#ff3b30}
+#l i{width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1px #0008}
+</style>
+<div id=l></div>
+<script>
+// Formato h:mm:ss si hay horas, si no mm:ss
+const p2=n=>String(n).padStart(2,'0');
+const fmt=ms=>{const t=Math.max(0,Math.ceil(ms/1000)),h=Math.floor(t/3600),m=Math.floor(t/60)%60,s=t%60;return h?h+':'+p2(m)+':'+p2(s):p2(m)+':'+p2(s)};
+let cu=[];
+function pinta(){l.innerHTML=cu.map(c=>{const ms=new Date(c.fin)-Date.now();return`<div${ms<=0?' class=z':''}><i style="background:${/^#[0-9a-f]{3,8}$/i.test(c.color)?c.color:'#fff'}"></i>${fmt(ms)}</div>`}).join('')}
+api.onCuentas(v=>{cu=v||[];pinta()});
+setInterval(pinta,1000);
+</script>

@@ -32,6 +32,7 @@ ARCHIVOS = [
     ("note.html", "text"),
     ("lanzador.html", "text"),
     ("calendario.html", "text"),
+    ("cuentas.html", "text"),
     ("preload.js", "text"),
     ("package.json", "text"),
     ("assets/icon.ico", "b64"),
